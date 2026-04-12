@@ -23,52 +23,91 @@ import os
 import numpy as np
 import tinker
 from tinker import types
+from tinker import Datum
 from tinker_cookbook import model_info, renderers
 from tinker_cookbook.supervised.data import conversation_to_datum
 from tinker_cookbook.tokenizer_utils import get_tokenizer
 
-MODEL = "meta-llama/Llama-3.2-3B"
+from datasets import load_dataset
+
+# MODEL = "meta-llama/Llama-3.2-3B"
 # MODEL = "meta-llama/Llama-3.2-1B"    # Smaller, faster for development
-# MODEL = "meta-llama/Llama-3.1-8B"    # Recommended for final submission
+MODEL = "meta-llama/Llama-3.1-8B"    # Recommended for final submission
 
 EVAL_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # TODO: TOY DATA, replace with your own training data
-DEMO_CONVERSATIONS = [
-    [
-        {"role": "user", "content": "What is 15 + 27?"},
-        {"role": "assistant", "content": "15 + 27 = 42"},
-    ],
-    [
-        {"role": "user", "content": "What is the capital of France?"},
-        {"role": "assistant", "content": "The capital of France is Paris."},
-    ],
-    [
-        {"role": "user", "content": "Write a Python function that returns the sum of two numbers."},
-        {"role": "assistant", "content": "def add(a, b):\n    return a + b"},
-    ],
-    [
-        {"role": "user", "content": "What is 8 * 7?"},
-        {"role": "assistant", "content": "8 * 7 = 56"},
-    ],
-    [
-        {"role": "user", "content": "Translate 'hello' to Spanish."},
-        {"role": "assistant", "content": "Hola"},
-    ],
-    [
-        {"role": "user", "content": "What is the square root of 144?"},
-        {"role": "assistant", "content": "The square root of 144 is 12."},
-    ],
-    [
-        {"role": "user", "content": "Write a Python function to check if a number is even."},
-        {"role": "assistant", "content": "def is_even(n):\n    return n % 2 == 0"},
-    ],
-    [
-        {"role": "user", "content": "List the first 5 prime numbers."},
-        {"role": "assistant", "content": "The first 5 prime numbers are: 2, 3, 5, 7, 11."},
-    ],
-]
+# DEMO_CONVERSATIONS = [
+#     [
+#         {"role": "user", "content": "What is 15 + 27?"},
+#         {"role": "assistant", "content": "15 + 27 = 42"},
+#     ],
+#     [
+#         {"role": "user", "content": "What is the capital of France?"},
+#         {"role": "assistant", "content": "The capital of France is Paris."},
+#     ],
+#     [
+#         {"role": "user", "content": "Write a Python function that returns the sum of two numbers."},
+#         {"role": "assistant", "content": "def add(a, b):\n    return a + b"},
+#     ],
+#     [
+#         {"role": "user", "content": "What is 8 * 7?"},
+#         {"role": "assistant", "content": "8 * 7 = 56"},
+#     ],
+#     [
+#         {"role": "user", "content": "Translate 'hello' to Spanish."},
+#         {"role": "assistant", "content": "Hola"},
+#     ],
+#     [
+#         {"role": "user", "content": "What is the square root of 144?"},
+#         {"role": "assistant", "content": "The square root of 144 is 12."},
+#     ],
+#     [
+#         {"role": "user", "content": "Write a Python function to check if a number is even."},
+#         {"role": "assistant", "content": "def is_even(n):\n    return n % 2 == 0"},
+#     ],
+#     [
+#         {"role": "user", "content": "List the first 5 prime numbers."},
+#         {"role": "assistant", "content": "The first 5 prime numbers are: 2, 3, 5, 7, 11."},
+#     ],
+# ]
 
+### DATASETS
+
+dataset_ifeval = load_dataset("google/ifeval", split="train") #ifEval
+dataset_gsm = load_dataset("gsm8k", "main") #gsm8k
+dataset_coding = load_dataset("codeparrot/apps", split = "intro") #APPS dataset for HumanEval
+
+def format_ifeval(example):
+    # IFEval typically has instruction + output fields (may vary slightly)
+    instruction = example.get("prompt") or example.get("instruction") or ""
+    response = example.get("response") or example.get("output") or ""
+    return {
+        "source": "ifeval",
+        "prompt": instruction,
+        "completion": response
+    }
+
+def format_gsm8k(example):
+    return [
+            {
+                "role": "user",
+                "content": example['question']
+            },
+            {
+                "role": "assistant",
+                "content": example["answer"]
+            }
+        ]
+
+def format_apps(example):
+    return {
+        "prompt": example["question"],
+        "completion": example["solutions"][0] if len(example["solutions"]) > 0 else ""
+    }
+
+
+train_data_gsm = [format_gsm8k(convo) for convo in dataset_gsm["train"]]
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
@@ -90,7 +129,8 @@ def main():
     # Prepare training data
     print("Preparing training data...")
     all_data = []
-    for convo in DEMO_CONVERSATIONS:
+    for convo in train_data_gsm:
+        # print(convo)
         datum = conversation_to_datum(
             convo, renderer, max_length=512, train_on_what=renderers.TrainOnWhat.ALL_ASSISTANT_MESSAGES
         )
