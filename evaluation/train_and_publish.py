@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import random
+import time
 
 import numpy as np
 import tinker
@@ -183,6 +184,9 @@ def main():
     parser.add_argument("--rank", type=int, default=32, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
+    parser.add_argument("--val_every", type=int, default=5, help="Validate every N steps")
+    parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size",
+    )
     args = parser.parse_args()
 
     # Setup
@@ -203,6 +207,7 @@ def main():
         val_data = [all_data[i] for i in indices[train_size:]]
         print(f"  Total Data: {len(all_data)} | Train: {len(train_data)} | Val: {len(val_data)}")
         return train_data, val_data
+    
     def to_datum(dataset):
         all_data = []
         for i in range(len(dataset)):
@@ -284,7 +289,7 @@ def main():
     #     all_data.append(datum)
 
     train_data, val_data = split_dataset(all_data)
-
+    val_batches = [val_data[i : i + args.val_batch_size] for i in range(0, len(val_data), args.val_batch_size)]
 
     # Create training client
     print(f"Creating LoRA training client (rank={args.rank})...")
@@ -298,42 +303,57 @@ def main():
 
     for step in range(args.num_steps):
         # Cycle through training data
-        start = (step * args.batch_size) % len(train_data)
-        batch = [train_data[i % len(train_data)] for i in range(start, start + args.batch_size)]
+        # start = (step * args.batch_size) % len(train_data)
+        # batch = [train_data[i % len(train_data)] for i in range(start, start + args.batch_size)]
         # batch = [train_data[random.randint(0, len(train_data)-1)] for _ in range(batch_size)]
-
+        batch = random.sample(train_data, args.batch_size) 
+        
         fwd_bwd_future = tc.forward_backward(batch, loss_fn="cross_entropy")
         optim_future = tc.optim_step(adam_params)
 
         fwd_bwd_result = fwd_bwd_future.result()
         optim_future.result()
         
-        #Compute training loss 
-        train_logprobs = np.concatenate([o["logprobs"].tolist() for o in fwd_bwd_result.loss_fn_outputs])
-        train_weights = np.concatenate([d.loss_fn_inputs["weights"].tolist() for d in batch])
-        train_loss = -np.dot(train_logprobs, train_weights) / max(train_weights.sum(), 1)
-
-        if (step % 10 == 0):
-            #Compute training loss 
-            train_logprobs = np.concatenate([o["logprobs"].tolist() for o in fwd_bwd_result.loss_fn_outputs])
-            train_weights = np.concatenate([d.loss_fn_inputs["weights"].tolist() for d in batch])
-            train_loss = -np.dot(train_logprobs, train_weights) / max(train_weights.sum(), 1)
-            print(f"Step {step} \n training loss: {train_loss:.4f}")
-            
-            #Validation 
-            # val_logprobs = []
-            # val_weights = []
-            # for val_start in range(0, len(val_data), args.batch_size):
-            #     val_batch = [val_data[i] for i in range(val_start, min(val_start + args.batch_size, len(val_data)-1))]
-            #     val_result = tc.forward(val_batch, loss_fn="cross_entropy").result()
-            #     val_logprobs.extend([o["logprobs"].tolist() for o in val_result.loss_fn_outputs])
-            #     val_weights.extend([d.loss_fn_inputs["weights"].tolist() for d in val_batch])
-
-            # val_loss = -np.dot(np.concatenate(val_logprobs), np.concatenate(val_weights)) / max(
-            #     np.concatenate(val_weights).sum(), 1
-            # )
-            # print(f"  Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        train_total = 0.0
+        train_count = 0.0
+        for logprob_output, datum in zip(fwd_bwd_result.loss_fn_outputs, batch):
+            weights = np.asarray(datum.loss_fn_inputs["weights"].tolist())
+            logprobs = np.asarray(logprob_output["logprobs"].tolist())
+            train_total += float(np.dot(logprobs, weights))
+            train_count += float(weights.sum())
+        train_loss = -train_total / max(train_count, 1.0)
         
+        print(f" Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
+        
+        # Validation
+        should_validate = (((step + 1) % args.val_every == 0) or (step == args.num_steps - 1)) and len(val_batches) > 0
+        if should_validate:
+            ###
+            val_block_start = time.perf_counter()
+            print(f"  Step {step+1}/{args.num_steps} | validation block start @ {time.strftime('%H:%M:%S')}")
+            ###
+            val_total = 0.0
+            val_count = 0.0
+            for val_batch in val_batches:
+                val_result = tc.forward(val_batch, loss_fn="cross_entropy").result()
+
+                batch_logprobs = np.concatenate([o["logprobs"].tolist() for o in val_result.loss_fn_outputs])
+                batch_weights = np.concatenate([d.loss_fn_inputs["weights"].tolist() for d in val_batch])
+                val_total += float(np.dot(batch_logprobs, batch_weights))
+                val_count += float(batch_weights.sum())
+
+            val_loss = -val_total / max(val_count, 1.0)
+            ###
+            val_block_elapsed = time.perf_counter() - val_block_start
+            ###
+        
+            print(
+                f"  Step {step+1}/{args.num_steps} | Val Loss: {val_loss:.4f}"
+                f" | Val Time: {val_block_elapsed:.2f}s | Val Examples: {len(val_data)}"
+            )
+        ###
+        else: 
+            val_loss = None
 
     # Save checkpoint
     print(f"\nSaving checkpoint '{args.checkpoint_name}'...")
