@@ -32,8 +32,8 @@ from tinker_cookbook.tokenizer_utils import get_tokenizer
 from torch.utils.data import Dataset
 from datasets import load_dataset
 
-# MODEL = "meta-llama/Llama-3.2-3B"
-MODEL = "meta-llama/Llama-3.2-1B"    # Smaller, faster for development
+MODEL = "meta-llama/Llama-3.2-3B"
+# MODEL = "meta-llama/Llama-3.2-1B"    # Smaller, faster for development
 # MODEL = "meta-llama/Llama-3.1-8B"    # Recommended for final submission
 
 EVAL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -75,7 +75,9 @@ DEMO_CONVERSATIONS = [
 ]
 
 ### DATASETS
-class MixedDataset(Dataset):
+
+# Sampler randomly picks a datum object with replacement from a distribution.
+class Sampler(Dataset):
     def __init__(
         self,
         datasets: dict,
@@ -117,32 +119,23 @@ class MixedDataset(Dataset):
                 return name
         return self.names[-1]
 
-    def __getitem__(self, idx):
+    def sample(self):
         # pick dataset
         name = self._sample_dataset()
         dataset = self.datasets[name]
-
-        # sample example uniformly from that dataset
         example = dataset[self.rng.randint(0, len(dataset) - 1)]
-        # datum = conversation_to_datum(
-        #     example, self.renderer, max_length=512, train_on_what=renderers.TrainOnWhat.ALL_ASSISTANT_MESSAGES
-        # )
 
         return example
 
-def format_ifeval(example):
-    # IFEval typically has instruction + output fields (may vary slightly)
-    instruction = example.get("prompt") or example.get("instruction") or ""
-    response = example.get("response") or example.get("output") or ""
+    def tolist(self):
+        data = [self.getitem(0) for i in range(self.total_size)]
+        return data
+
+def format_tutu(example):
+    instruction = example.get("messages")[0]
+    response = example.get("messages")[1]
     return [
-            {
-                "role": "user",
-                "content": instruction
-            },
-            {
-                "role": "assistant",
-                "content": response
-            }
+            instruction, response
         ]
 
 def format_gsm8k(example):
@@ -169,8 +162,17 @@ def format_mbpp(example):
             }
         ]
 
-
-# train_data_gsm = [format_gsm8k(convo) for convo in dataset_gsm["train"]]
+def format_opencode(example):
+    return [
+            {
+                "role": "user",
+                "content": example['input']
+            },
+            {
+                "role": "assistant",
+                "content": example['output']
+            }
+        ]
 
 
 def main():
@@ -201,7 +203,6 @@ def main():
         val_data = [all_data[i] for i in indices[train_size:]]
         print(f"  Total Data: {len(all_data)} | Train: {len(train_data)} | Val: {len(val_data)}")
         return train_data, val_data
-
     def to_datum(dataset):
         all_data = []
         for i in range(len(dataset)):
@@ -213,57 +214,67 @@ def main():
         return all_data
 
     def process_dataset(name):
-        if name == "if_eval":
-            dataset_ifeval = load_dataset("google/ifeval", split="train")
-            dataset_ifeval = to_datum([format_ifeval(s) for s in dataset_ifeval])
-            dataset_ifeval_train, dataset_ifeval_val = split_dataset(dataset_ifeval)
-            return dataset_ifeval_train, dataset_ifeval_val
+        if name == "tutu":
+            ds = load_dataset("allenai/tulu-3-sft-mixture", split = "train", streaming=True)
+            dataset_tutu = list(ds.take(1000))
+            dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
+            return dataset_tutu
         if name == "gsm8k":
             dataset_gsm = load_dataset("gsm8k", "main", split = "train")
+            # print([format_gsm8k(s) for s in dataset_gsm][:10])
             dataset_gsm = to_datum([format_gsm8k(s) for s in dataset_gsm])
-            dataset_gsm_train, dataset_gsm_val = split_dataset(dataset_gsm)
-            return dataset_gsm_train, dataset_gsm_val
+            return dataset_gsm
         if name == "mbpp":
             dataset_mbpp = load_dataset("mbpp", split = "train")
+            # print([format_mbpp(s) for s in dataset_mbpp][:10])
             dataset_mbpp = to_datum([format_mbpp(s) for s in dataset_mbpp])
-            dataset_mbpp_train, dataset_mbpp_val = split_dataset(dataset_mbpp)
-            return dataset_mbpp_train, dataset_mbpp_val
+            return dataset_mbpp
+        if name == "opencode":
+            ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
+            dataset = list(ds.take(1000))
+            dataset = to_datum([format_opencode(s) for s in dataset])
+            return dataset
+
         raise ValueError("Invalid dataset name.")
+    dataset_tutu = process_dataset("tutu") #tutu for ifEval
+    dataset_gsm = process_dataset("gsm8k") #gsm8k
+    # dataset_coding_train, dataset_coding_val = process_dataset("mbpp") #mbpp dataset for HumanEval
+    dataset_coding = process_dataset("opencode") #opencode dataset for HumanEval
 
-    dataset_ifeval_train, dataset_ifeval_val = process_dataset("if_eval") #ifEval
-    dataset_gsm_train, dataset_gsm_val = process_dataset("gsm8k") #gsm8k
-    dataset_coding_train, dataset_coding_val = process_dataset("mbpp") #mbpp dataset for HumanEval
+    # train_data = MixedDataset(
+    #     datasets = {
+    #         "tutu": dataset_tutu_train,
+    #         "gsm8k": dataset_gsm_train,
+    #         "mbpp": dataset_coding_train
+    #     },
+    #     weights = {
+    #         "tutu": 0.3,
+    #         "gsm8k": 0.4,
+    #         "mbpp": 0.3
+    #     },
+    #     total_size = 1500
+    # )
 
-    train_data = MixedDataset(
-        datasets = {
-            "ifeval": dataset_ifeval_train,
-            "gsm8k": dataset_gsm_train,
-            "mbpp": dataset_coding_train
-        },
-        weights = {
-            "ifeval": 0.3,
-            "gsm8k": 0.4,
-            "mbpp": 0.3
-        },
-        total_size = 15
-    )
+    # val_data = MixedDataset(
+    #     datasets = {
+    #         "tutu": dataset_tutu_val,
+    #         "gsm8k": dataset_gsm_val,
+    #         "mbpp": dataset_coding_val
+    #     },
+    #     weights = {
+    #         "tutu": 0.3,
+    #         "gsm8k": 0.4,
+    #         "mbpp": 0.3
+    #     },
+    #     total_size = 500
+    # )
 
-    val_data = MixedDataset(
-        datasets = {
-            "ifeval": dataset_ifeval_val,
-            "gsm8k": dataset_gsm_val,
-            "mbpp": dataset_coding_val
-        },
-        weights = {
-            "ifeval": 0.3,
-            "gsm8k": 0.4,
-            "mbpp": 0.3
-        },
-        total_size = 5
-    )
+    def sample_from_dataset(dataset, value):
+        passes = value // len(dataset)
+        return dataset * passes + random.sample(dataset, value - passes * len(dataset))
 
-
-
+    all_data = sample_from_dataset(dataset_tutu, 600) + sample_from_dataset(dataset_gsm, 800) + sample_from_dataset(dataset_coding, 600) 
+    random.shuffle(all_data)
     # all_data = []
     # for i in range(len(DEMO_CONVERSATIONS)):
     #     convo = DEMO_CONVERSATIONS[i]
@@ -272,7 +283,7 @@ def main():
     #     )
     #     all_data.append(datum)
 
-    # train_data, val_data = split_dataset(all_data)
+    train_data, val_data = split_dataset(all_data)
 
 
     # Create training client
@@ -289,6 +300,7 @@ def main():
         # Cycle through training data
         start = (step * args.batch_size) % len(train_data)
         batch = [train_data[i % len(train_data)] for i in range(start, start + args.batch_size)]
+        # batch = [train_data[random.randint(0, len(train_data)-1)] for _ in range(batch_size)]
 
         fwd_bwd_future = tc.forward_backward(batch, loss_fn="cross_entropy")
         optim_future = tc.optim_step(adam_params)
@@ -300,22 +312,28 @@ def main():
         train_logprobs = np.concatenate([o["logprobs"].tolist() for o in fwd_bwd_result.loss_fn_outputs])
         train_weights = np.concatenate([d.loss_fn_inputs["weights"].tolist() for d in batch])
         train_loss = -np.dot(train_logprobs, train_weights) / max(train_weights.sum(), 1)
-        
-        #Validation 
-        print("start val")
-        val_logprobs = []
-        val_weights = []
-        for val_start in range(0, len(val_data), args.batch_size):
-            val_batch = [val_data[i] for i in range(val_start, min(val_start + args.batch_size, len(val_data)-1))]
-            val_result = tc.forward(val_batch, loss_fn="cross_entropy").result()
-            val_logprobs.extend([o["logprobs"].tolist() for o in val_result.loss_fn_outputs])
-            val_weights.extend([d.loss_fn_inputs["weights"].tolist() for d in val_batch])
 
-        val_loss = -np.dot(np.concatenate(val_logprobs), np.concatenate(val_weights)) / max(
-            np.concatenate(val_weights).sum(), 1
-        )
+        if (step % 10 == 0):
+            #Compute training loss 
+            train_logprobs = np.concatenate([o["logprobs"].tolist() for o in fwd_bwd_result.loss_fn_outputs])
+            train_weights = np.concatenate([d.loss_fn_inputs["weights"].tolist() for d in batch])
+            train_loss = -np.dot(train_logprobs, train_weights) / max(train_weights.sum(), 1)
+            print(f"Step {step} \n training loss: {train_loss:.4f}")
+            
+            #Validation 
+            # val_logprobs = []
+            # val_weights = []
+            # for val_start in range(0, len(val_data), args.batch_size):
+            #     val_batch = [val_data[i] for i in range(val_start, min(val_start + args.batch_size, len(val_data)-1))]
+            #     val_result = tc.forward(val_batch, loss_fn="cross_entropy").result()
+            #     val_logprobs.extend([o["logprobs"].tolist() for o in val_result.loss_fn_outputs])
+            #     val_weights.extend([d.loss_fn_inputs["weights"].tolist() for d in val_batch])
+
+            # val_loss = -np.dot(np.concatenate(val_logprobs), np.concatenate(val_weights)) / max(
+            #     np.concatenate(val_weights).sum(), 1
+            # )
+            # print(f"  Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         
-        print(f"  Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
     # Save checkpoint
     print(f"\nSaving checkpoint '{args.checkpoint_name}'...")
