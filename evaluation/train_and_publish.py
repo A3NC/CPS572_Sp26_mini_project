@@ -184,7 +184,7 @@ def main():
     parser.add_argument("--rank", type=int, default=32, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
-    parser.add_argument("--val_every", type=int, default=5, help="Validate every N steps")
+    parser.add_argument("--val_every", type=int, default=10, help="Validate every N steps")
     parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size")
     parser.add_argument("--early_stopping", type=bool, default=True, help="Early Stopping")
     parser.add_argument("--patience", type=int, default=2, help="Early stopping patience (number of validations to wait for improvement)")
@@ -221,7 +221,7 @@ def main():
 
     def process_dataset(name):
         if name == "tutu":
-            ds = load_dataset("allenai/tulu-3-sft-mixture", split = "train", streaming=True)
+            ds = load_dataset("allenai/tulu-3-sft-personas-instruction-following", split = "train", streaming=True)
             dataset_tutu = list(ds.take(1000))
             dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
             return dataset_tutu
@@ -279,7 +279,12 @@ def main():
         passes = value // len(dataset)
         return dataset * passes + random.sample(dataset, value - passes * len(dataset))
 
-    all_data = sample_from_dataset(dataset_tutu, 600) + sample_from_dataset(dataset_gsm, 800) + sample_from_dataset(dataset_coding, 600) 
+    #all_data = sample_from_dataset(dataset_tutu, 600) + sample_from_dataset(dataset_gsm, 800) + sample_from_dataset(dataset_coding, 600) 
+    all_data = (
+        sample_from_dataset(dataset_tutu,   1200) +  # was 600 — IFEval is lagging
+        sample_from_dataset(dataset_gsm,    1000) +  # was 800 — GSM8K slightly short
+        sample_from_dataset(dataset_coding,  400)    # was 600 — HumanEval already passing
+    )
     random.shuffle(all_data)
     # all_data = []
     # for i in range(len(DEMO_CONVERSATIONS)):
@@ -364,7 +369,7 @@ def main():
                     patience_counter = 0
                 else:
                     patience_counter += 1
-                    prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
+                    # prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
                     print(f"  No improvement in val_loss. Patience counter: {patience_counter}/{args.patience}")
                 
                 if patience_counter >= args.patience:
