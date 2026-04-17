@@ -1,0 +1,780 @@
+{
+  "baselines": {
+    "google/IFEval/final_acc": 0.45,
+    "openai/gsm8k/accuracy": 0.5,
+    "openai/openai_humaneval/accuracy": 0.3
+  },
+  "search_space": {
+    "lr": [
+      0.0001,
+      0.0003
+    ],
+    "rank": [
+      32,
+      64
+    ],
+    "batch_size": [
+      4,
+      8
+    ],
+    "num_steps": [
+      20,
+      50
+    ]
+  },
+  "base_model": "meta-llama/Llama-3.1-8B",
+  "runs": [
+    {
+      "run": 1,
+      "config": {
+        "lr": 0.0001,
+        "rank": 32,
+        "batch_size": 4,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_101220_lr0.0001_r32_bs4_s20",
+      "checkpoint_path": "tinker://c65cdf06-9c54-59eb-bb24-0c4d7a60bd75:train:0/sampler_weights/gs_20260416_101220_lr0.0001_r32_bs4_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2735674676524954,
+        "google/IFEval/prompt_strict_stderr": 0.019183727107392846,
+        "google/IFEval/prompt_loose_acc": 0.2902033271719039,
+        "google/IFEval/prompt_loose_stderr": 0.019530856691222623,
+        "google/IFEval/inst_strict_acc": 0.39448441247002397,
+        "google/IFEval/inst_strict_stderr": 0.016789806705090966,
+        "google/IFEval/inst_loose_acc": 0.4184652278177458,
+        "google/IFEval/inst_loose_stderr": 0.017011824079302018,
+        "google/IFEval/final_acc": 0.3441801087780423,
+        "google/IFEval/final_stderr": 0.017346713253482367,
+        "openai/gsm8k/accuracy": 0.2964366944655042,
+        "openai/gsm8k/stderr": 0.01257939823558949,
+        "openai/openai_humaneval/accuracy": 0.45121951219512196,
+        "openai/openai_humaneval/stderr": 0.03897619723598801
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3441801087780423,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.2964366944655042,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.45121951219512196,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 631.2,
+      "timestamp": "20260416_101220"
+    },
+    {
+      "run": 2,
+      "config": {
+        "lr": 0.0001,
+        "rank": 32,
+        "batch_size": 4,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_102251_lr0.0001_r32_bs4_s50",
+      "checkpoint_path": "tinker://dffd1700-dbae-5d5e-bec1-165d37223153:train:0/sampler_weights/gs_20260416_102251_lr0.0001_r32_bs4_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.24584103512014788,
+        "google/IFEval/prompt_strict_stderr": 0.01852941708079555,
+        "google/IFEval/prompt_loose_acc": 0.2698706099815157,
+        "google/IFEval/prompt_loose_stderr": 0.019102087526494387,
+        "google/IFEval/inst_strict_acc": 0.3669064748201439,
+        "google/IFEval/inst_strict_stderr": 0.017131467372191785,
+        "google/IFEval/inst_loose_acc": 0.38968824940047964,
+        "google/IFEval/inst_loose_stderr": 0.01752286899181689,
+        "google/IFEval/final_acc": 0.3180765923305718,
+        "google/IFEval/final_stderr": 0.017079620515500427,
+        "openai/gsm8k/accuracy": 0.3419257012888552,
+        "openai/gsm8k/stderr": 0.013066089625182731,
+        "openai/openai_humaneval/accuracy": 0.45121951219512196,
+        "openai/openai_humaneval/stderr": 0.03897619723598801
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3180765923305718,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.3419257012888552,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.45121951219512196,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 688.6,
+      "timestamp": "20260416_102251"
+    },
+    {
+      "run": 3,
+      "config": {
+        "lr": 0.0001,
+        "rank": 32,
+        "batch_size": 8,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_104318_lr0.0001_r32_bs8_s20",
+      "checkpoint_path": "tinker://6d3563be-796f-5b43-bc47-94129392ed68:train:0/sampler_weights/gs_20260416_104318_lr0.0001_r32_bs8_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.23475046210720887,
+        "google/IFEval/prompt_strict_stderr": 0.0182392882134338,
+        "google/IFEval/prompt_loose_acc": 0.25508317929759705,
+        "google/IFEval/prompt_loose_stderr": 0.018758491950414184,
+        "google/IFEval/inst_strict_acc": 0.34292565947242204,
+        "google/IFEval/inst_strict_stderr": 0.01674721656994573,
+        "google/IFEval/inst_loose_acc": 0.36810551558752996,
+        "google/IFEval/inst_loose_stderr": 0.01708237779070943,
+        "google/IFEval/final_acc": 0.3002162041161895,
+        "google/IFEval/final_stderr": 0.01680820988944738,
+        "openai/gsm8k/accuracy": 0.43745261561789234,
+        "openai/gsm8k/stderr": 0.013664299060751955,
+        "openai/openai_humaneval/accuracy": 0.43902439024390244,
+        "openai/openai_humaneval/stderr": 0.03887071342353302
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3002162041161895,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.43745261561789234,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.43902439024390244,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 282.1,
+      "timestamp": "20260416_104318"
+    },
+    {
+      "run": 4,
+      "config": {
+        "lr": 0.0001,
+        "rank": 32,
+        "batch_size": 8,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_104800_lr0.0001_r32_bs8_s50",
+      "checkpoint_path": "tinker://e6fd86d5-9635-558d-8166-aedf264174aa:train:0/sampler_weights/gs_20260416_104800_lr0.0001_r32_bs8_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.19038817005545286,
+        "google/IFEval/prompt_strict_stderr": 0.016895129407634615,
+        "google/IFEval/prompt_loose_acc": 0.2199630314232902,
+        "google/IFEval/prompt_loose_stderr": 0.01782524719221706,
+        "google/IFEval/inst_strict_acc": 0.29856115107913667,
+        "google/IFEval/inst_strict_stderr": 0.01626712115978787,
+        "google/IFEval/inst_loose_acc": 0.328537170263789,
+        "google/IFEval/inst_loose_stderr": 0.017026405036038743,
+        "google/IFEval/final_acc": 0.2593623807054172,
+        "google/IFEval/final_stderr": 0.01573865895592609,
+        "openai/gsm8k/accuracy": 0.3411675511751327,
+        "openai/gsm8k/stderr": 0.013059111935831492,
+        "openai/openai_humaneval/accuracy": 0.4634146341463415,
+        "openai/openai_humaneval/stderr": 0.039058043248019154
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.2593623807054172,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.3411675511751327,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4634146341463415,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 520.5,
+      "timestamp": "20260416_104800"
+    },
+    {
+      "run": 5,
+      "config": {
+        "lr": 0.0001,
+        "rank": 64,
+        "batch_size": 4,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_105641_lr0.0001_r64_bs4_s20",
+      "checkpoint_path": "tinker://2490e310-9696-5fcb-b5fd-02348c6e7966:train:0/sampler_weights/gs_20260416_105641_lr0.0001_r64_bs4_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2754158964879852,
+        "google/IFEval/prompt_strict_stderr": 0.01922392319624193,
+        "google/IFEval/prompt_loose_acc": 0.2975970425138632,
+        "google/IFEval/prompt_loose_stderr": 0.019674812004413397,
+        "google/IFEval/inst_strict_acc": 0.40047961630695444,
+        "google/IFEval/inst_strict_stderr": 0.016587770138475663,
+        "google/IFEval/inst_loose_acc": 0.42326139088729015,
+        "google/IFEval/inst_loose_stderr": 0.016921884418583343,
+        "google/IFEval/final_acc": 0.34918848654902324,
+        "google/IFEval/final_stderr": 0.017381972679264758,
+        "openai/gsm8k/accuracy": 0.41925701288855194,
+        "openai/gsm8k/stderr": 0.013591720959042227,
+        "openai/openai_humaneval/accuracy": 0.4573170731707317,
+        "openai/openai_humaneval/stderr": 0.039020064663756335
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.34918848654902324,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.41925701288855194,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4573170731707317,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 434.9,
+      "timestamp": "20260416_105641"
+    },
+    {
+      "run": 6,
+      "config": {
+        "lr": 0.0001,
+        "rank": 64,
+        "batch_size": 4,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_111709_lr0.0001_r64_bs4_s50",
+      "checkpoint_path": "tinker://2f00b993-beae-5860-b638-83c7cf5b7d5b:train:0/sampler_weights/gs_20260416_111709_lr0.0001_r64_bs4_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.23844731977818853,
+        "google/IFEval/prompt_strict_stderr": 0.018337888094243908,
+        "google/IFEval/prompt_loose_acc": 0.2680221811460259,
+        "google/IFEval/prompt_loose_stderr": 0.019060638691630334,
+        "google/IFEval/inst_strict_acc": 0.35251798561151076,
+        "google/IFEval/inst_strict_stderr": 0.016405611662197957,
+        "google/IFEval/inst_loose_acc": 0.381294964028777,
+        "google/IFEval/inst_loose_stderr": 0.016689498344115233,
+        "google/IFEval/final_acc": 0.31007061264112556,
+        "google/IFEval/final_stderr": 0.016687927556036444,
+        "openai/gsm8k/accuracy": 0.49052312357846856,
+        "openai/gsm8k/stderr": 0.013770010651168764,
+        "openai/openai_humaneval/accuracy": 0.4451219512195122,
+        "openai/openai_humaneval/stderr": 0.038926421055741484
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.31007061264112556,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.49052312357846856,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4451219512195122,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 523.6,
+      "timestamp": "20260416_111709"
+    },
+    {
+      "run": 7,
+      "config": {
+        "lr": 0.0001,
+        "rank": 64,
+        "batch_size": 8,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_112553_lr0.0001_r64_bs8_s20",
+      "checkpoint_path": "tinker://c71b2ed8-ad99-5d6a-882b-9b6bc86ac00f:train:0/sampler_weights/gs_20260416_112553_lr0.0001_r64_bs8_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2255083179297597,
+        "google/IFEval/prompt_strict_stderr": 0.01798426866449563,
+        "google/IFEval/prompt_loose_acc": 0.266173752310536,
+        "google/IFEval/prompt_loose_stderr": 0.019018766847290668,
+        "google/IFEval/inst_strict_acc": 0.34292565947242204,
+        "google/IFEval/inst_strict_stderr": 0.016189939985882973,
+        "google/IFEval/inst_loose_acc": 0.38369304556354916,
+        "google/IFEval/inst_loose_stderr": 0.016776556926387055,
+        "google/IFEval/final_acc": 0.3045751938190667,
+        "google/IFEval/final_stderr": 0.016374195992085058,
+        "openai/gsm8k/accuracy": 0.5178165276724791,
+        "openai/gsm8k/stderr": 0.013763738379867966,
+        "openai/openai_humaneval/accuracy": 0.43902439024390244,
+        "openai/openai_humaneval/stderr": 0.03887071342353302
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3045751938190667,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.5178165276724791,
+          "target": 0.5,
+          "passed": true
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.43902439024390244,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 452.4,
+      "timestamp": "20260416_112553"
+    },
+    {
+      "run": 8,
+      "config": {
+        "lr": 0.0001,
+        "rank": 64,
+        "batch_size": 8,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_113712_lr0.0001_r64_bs8_s50",
+      "checkpoint_path": "tinker://dd109040-f78d-5ec9-a687-1be83522c23b:train:0/sampler_weights/gs_20260416_113712_lr0.0001_r64_bs8_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2902033271719039,
+        "google/IFEval/prompt_strict_stderr": 0.019530856691222623,
+        "google/IFEval/prompt_loose_acc": 0.31608133086876156,
+        "google/IFEval/prompt_loose_stderr": 0.020008050377239087,
+        "google/IFEval/inst_strict_acc": 0.40047961630695444,
+        "google/IFEval/inst_strict_stderr": 0.01699953966002067,
+        "google/IFEval/inst_loose_acc": 0.4304556354916067,
+        "google/IFEval/inst_loose_stderr": 0.017315026501400925,
+        "google/IFEval/final_acc": 0.35930497745980666,
+        "google/IFEval/final_stderr": 0.017832842091776557,
+        "openai/gsm8k/accuracy": 0.5003790750568613,
+        "openai/gsm8k/stderr": 0.013772480761626195,
+        "openai/openai_humaneval/accuracy": 0.4695121951219512,
+        "openai/openai_humaneval/stderr": 0.03909015015294601
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.35930497745980666,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.5003790750568613,
+          "target": 0.5,
+          "passed": true
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4695121951219512,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 575.4,
+      "timestamp": "20260416_113712"
+    },
+    {
+      "run": 9,
+      "config": {
+        "lr": 0.0003,
+        "rank": 32,
+        "batch_size": 4,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_114647_lr0.0003_r32_bs4_s20",
+      "checkpoint_path": "tinker://45999e36-a474-54a3-b97c-e888774faeb2:train:0/sampler_weights/gs_20260416_114647_lr0.0003_r32_bs4_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2680221811460259,
+        "google/IFEval/prompt_strict_stderr": 0.019060638691630338,
+        "google/IFEval/prompt_loose_acc": 0.28650646950092423,
+        "google/IFEval/prompt_loose_stderr": 0.01945652858321169,
+        "google/IFEval/inst_strict_acc": 0.3752997601918465,
+        "google/IFEval/inst_strict_stderr": 0.01709805658175164,
+        "google/IFEval/inst_loose_acc": 0.3920863309352518,
+        "google/IFEval/inst_loose_stderr": 0.017307497261848298,
+        "google/IFEval/final_acc": 0.3304786854435121,
+        "google/IFEval/final_stderr": 0.0175498533588819,
+        "openai/gsm8k/accuracy": 0.20545868081880211,
+        "openai/gsm8k/stderr": 0.011129170248544693,
+        "openai/openai_humaneval/accuracy": 0.43902439024390244,
+        "openai/openai_humaneval/stderr": 0.03887071342353302
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3304786854435121,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.20545868081880211,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.43902439024390244,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 325.2,
+      "timestamp": "20260416_114647"
+    },
+    {
+      "run": 10,
+      "config": {
+        "lr": 0.0003,
+        "rank": 32,
+        "batch_size": 4,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_115212_lr0.0003_r32_bs4_s50",
+      "checkpoint_path": "tinker://5cb390c3-20ad-5dfe-a925-e94ef10d5928:train:0/sampler_weights/gs_20260416_115212_lr0.0003_r32_bs4_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.24029574861367836,
+        "google/IFEval/prompt_strict_stderr": 0.018386473581487088,
+        "google/IFEval/prompt_loose_acc": 0.2680221811460259,
+        "google/IFEval/prompt_loose_stderr": 0.019060638691630338,
+        "google/IFEval/inst_strict_acc": 0.35611510791366907,
+        "google/IFEval/inst_strict_stderr": 0.01662288235283807,
+        "google/IFEval/inst_loose_acc": 0.3800959232613909,
+        "google/IFEval/inst_loose_stderr": 0.016880263874067485,
+        "google/IFEval/final_acc": 0.31113224023369107,
+        "google/IFEval/final_stderr": 0.01678937420804872,
+        "openai/gsm8k/accuracy": 0.4351781652767248,
+        "openai/gsm8k/stderr": 0.013656253875470805,
+        "openai/openai_humaneval/accuracy": 0.4329268292682927,
+        "openai/openai_humaneval/stderr": 0.03880904879683742
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.31113224023369107,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.4351781652767248,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4329268292682927,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 602.7,
+      "timestamp": "20260416_115212"
+    },
+    {
+      "run": 11,
+      "config": {
+        "lr": 0.0003,
+        "rank": 32,
+        "batch_size": 8,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_120300_lr0.0003_r32_bs8_s20",
+      "checkpoint_path": "tinker://2a0392dd-60d2-5948-b741-4cbec34f5ddf:train:0/sampler_weights/gs_20260416_120300_lr0.0003_r32_bs8_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.24399260628465805,
+        "google/IFEval/prompt_strict_stderr": 0.0184822344309679,
+        "google/IFEval/prompt_loose_acc": 0.26062846580406657,
+        "google/IFEval/prompt_loose_stderr": 0.01889058498676019,
+        "google/IFEval/inst_strict_acc": 0.3537170263788969,
+        "google/IFEval/inst_strict_stderr": 0.016875520057558095,
+        "google/IFEval/inst_loose_acc": 0.3752997601918465,
+        "google/IFEval/inst_loose_stderr": 0.017213322962193765,
+        "google/IFEval/final_acc": 0.308409464664867,
+        "google/IFEval/final_stderr": 0.0169772602694429,
+        "openai/gsm8k/accuracy": 0.44806671721000757,
+        "openai/gsm8k/stderr": 0.013697992668274508,
+        "openai/openai_humaneval/accuracy": 0.40853658536585363,
+        "openai/openai_humaneval/stderr": 0.038502206436930836
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.308409464664867,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.44806671721000757,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.40853658536585363,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 322.2,
+      "timestamp": "20260416_120300"
+    },
+    {
+      "run": 12,
+      "config": {
+        "lr": 0.0003,
+        "rank": 32,
+        "batch_size": 8,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_120822_lr0.0003_r32_bs8_s50",
+      "checkpoint_path": "tinker://c3e22f59-3f17-5590-a5fa-1ce3c919aa8c:train:0/sampler_weights/gs_20260416_120822_lr0.0003_r32_bs8_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2199630314232902,
+        "google/IFEval/prompt_strict_stderr": 0.01782524719221706,
+        "google/IFEval/prompt_loose_acc": 0.2735674676524954,
+        "google/IFEval/prompt_loose_stderr": 0.019183727107392846,
+        "google/IFEval/inst_strict_acc": 0.3213429256594724,
+        "google/IFEval/inst_strict_stderr": 0.015879214112867985,
+        "google/IFEval/inst_loose_acc": 0.3764988009592326,
+        "google/IFEval/inst_loose_stderr": 0.01699173047469599,
+        "google/IFEval/final_acc": 0.29784305642362263,
+        "google/IFEval/final_stderr": 0.016376475385051926,
+        "openai/gsm8k/accuracy": 0.4852160727824109,
+        "openai/gsm8k/stderr": 0.013766463050787549,
+        "openai/openai_humaneval/accuracy": 0.49390243902439024,
+        "openai/openai_humaneval/stderr": 0.03916011020919124
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.29784305642362263,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.4852160727824109,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.49390243902439024,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 573.3,
+      "timestamp": "20260416_120822"
+    },
+    {
+      "run": 13,
+      "config": {
+        "lr": 0.0003,
+        "rank": 64,
+        "batch_size": 4,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_121756_lr0.0003_r64_bs4_s20",
+      "checkpoint_path": "tinker://a68ab5f7-1322-5651-a413-cfa2120ab707:train:0/sampler_weights/gs_20260416_121756_lr0.0003_r64_bs4_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2199630314232902,
+        "google/IFEval/prompt_strict_stderr": 0.01782524719221706,
+        "google/IFEval/prompt_loose_acc": 0.24214417744916822,
+        "google/IFEval/prompt_loose_stderr": 0.018434587800223168,
+        "google/IFEval/inst_strict_acc": 0.33573141486810554,
+        "google/IFEval/inst_strict_stderr": 0.015388255613359521,
+        "google/IFEval/inst_loose_acc": 0.3669064748201439,
+        "google/IFEval/inst_loose_stderr": 0.015890055814059258,
+        "google/IFEval/final_acc": 0.29118627464017693,
+        "google/IFEval/final_stderr": 0.015927596542278502,
+        "openai/gsm8k/accuracy": 0.4291129643669447,
+        "openai/gsm8k/stderr": 0.013633369425647293,
+        "openai/openai_humaneval/accuracy": 0.4451219512195122,
+        "openai/openai_humaneval/stderr": 0.038926421055741484
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.29118627464017693,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.4291129643669447,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4451219512195122,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 292.9,
+      "timestamp": "20260416_121756"
+    },
+    {
+      "run": 14,
+      "config": {
+        "lr": 0.0003,
+        "rank": 64,
+        "batch_size": 4,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_122249_lr0.0003_r64_bs4_s50",
+      "checkpoint_path": "tinker://ebaf7acf-cd65-519f-86a6-3c88e8b15419:train:0/sampler_weights/gs_20260416_122249_lr0.0003_r64_bs4_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.20147874306839186,
+        "google/IFEval/prompt_strict_stderr": 0.017260802262371536,
+        "google/IFEval/prompt_loose_acc": 0.22920517560073936,
+        "google/IFEval/prompt_loose_stderr": 0.018087757424955286,
+        "google/IFEval/inst_strict_acc": 0.32014388489208634,
+        "google/IFEval/inst_strict_stderr": 0.015574030202829667,
+        "google/IFEval/inst_loose_acc": 0.354916067146283,
+        "google/IFEval/inst_loose_stderr": 0.016051788183490824,
+        "google/IFEval/final_acc": 0.27643596767687517,
+        "google/IFEval/final_stderr": 0.015601876823510717,
+        "openai/gsm8k/accuracy": 0.42532221379833207,
+        "openai/gsm8k/stderr": 0.013618006363084913,
+        "openai/openai_humaneval/accuracy": 0.4573170731707317,
+        "openai/openai_humaneval/stderr": 0.039020064663756335
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.27643596767687517,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.42532221379833207,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.4573170731707317,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 528.7,
+      "timestamp": "20260416_122249"
+    },
+    {
+      "run": 15,
+      "config": {
+        "lr": 0.0003,
+        "rank": 64,
+        "batch_size": 8,
+        "num_steps": 20
+      },
+      "checkpoint_name": "gs_20260416_123137_lr0.0003_r64_bs8_s20",
+      "checkpoint_path": "tinker://54d53a06-b741-5514-a040-9b20ba1abaa4:train:0/sampler_weights/gs_20260416_123137_lr0.0003_r64_bs8_s20",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.2365988909426987,
+        "google/IFEval/prompt_strict_stderr": 0.018288827582625598,
+        "google/IFEval/prompt_loose_acc": 0.2735674676524954,
+        "google/IFEval/prompt_loose_stderr": 0.019183727107392842,
+        "google/IFEval/inst_strict_acc": 0.35731414868105515,
+        "google/IFEval/inst_strict_stderr": 0.016903342247646523,
+        "google/IFEval/inst_loose_acc": 0.3932853717026379,
+        "google/IFEval/inst_loose_stderr": 0.017259171134700657,
+        "google/IFEval/final_acc": 0.3151914697447218,
+        "google/IFEval/final_stderr": 0.01675785325706095,
+        "openai/gsm8k/accuracy": 0.4336618650492798,
+        "openai/gsm8k/stderr": 0.013650728047064617,
+        "openai/openai_humaneval/accuracy": 0.45121951219512196,
+        "openai/openai_humaneval/stderr": 0.03897619723598801
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.3151914697447218,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.4336618650492798,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.45121951219512196,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 332.2,
+      "timestamp": "20260416_123137"
+    },
+    {
+      "run": 16,
+      "config": {
+        "lr": 0.0003,
+        "rank": 64,
+        "batch_size": 8,
+        "num_steps": 50
+      },
+      "checkpoint_name": "gs_20260416_123709_lr0.0003_r64_bs8_s50",
+      "checkpoint_path": "tinker://e98215e2-6dd9-5622-be8b-c228f732febc:train:0/sampler_weights/gs_20260416_123709_lr0.0003_r64_bs8_s50",
+      "metrics": {
+        "google/IFEval/prompt_strict_acc": 0.23290203327171904,
+        "google/IFEval/prompt_strict_stderr": 0.018189266074091815,
+        "google/IFEval/prompt_loose_acc": 0.28650646950092423,
+        "google/IFEval/prompt_loose_stderr": 0.01945652858321169,
+        "google/IFEval/inst_strict_acc": 0.34292565947242204,
+        "google/IFEval/inst_strict_stderr": 0.0162229753386068,
+        "google/IFEval/inst_loose_acc": 0.40167865707434053,
+        "google/IFEval/inst_loose_stderr": 0.016734368906665062,
+        "google/IFEval/final_acc": 0.31600320482985145,
+        "google/IFEval/final_stderr": 0.016526649272009013,
+        "openai/gsm8k/accuracy": 0.42532221379833207,
+        "openai/gsm8k/stderr": 0.013618006363084913,
+        "openai/openai_humaneval/accuracy": 0.45121951219512196,
+        "openai/openai_humaneval/stderr": 0.03897619723598801
+      },
+      "baseline_check": {
+        "google/IFEval/final_acc": {
+          "score": 0.31600320482985145,
+          "target": 0.45,
+          "passed": false
+        },
+        "openai/gsm8k/accuracy": {
+          "score": 0.42532221379833207,
+          "target": 0.5,
+          "passed": false
+        },
+        "openai/openai_humaneval/accuracy": {
+          "score": 0.45121951219512196,
+          "target": 0.3,
+          "passed": true
+        }
+      },
+      "all_passed": false,
+      "elapsed_seconds": 502.5,
+      "timestamp": "20260416_123709"
+    }
+  ]
+}
