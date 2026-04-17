@@ -28,21 +28,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-# ── Baseline targets ──────────────────────────────────────────────────────────
-# BASELINES = {
-#     "ifeval/prompt_level_strict_acc": 0.45,
-#     "gsm8k/accuracy":                 0.50,
-#     "humaneval/pass@1":               0.30,
-# }
-
+# Baseline targets 
 BASELINES = {
     "google/IFEval/final_acc":   0.45,
     "openai/gsm8k/accuracy":             0.50,
     "openai/openai_humaneval/accuracy":  0.30,
 }
 
-# ── Search space ──────────────────────────────────────────────────────────────
-# Edit these lists to widen or narrow the search.
+#  Search space to search over
 SEARCH_SPACE = {
     "lr":         [1e-4, 3e-4],
     "rank":       [32, 64],
@@ -63,8 +56,7 @@ PROJECT_DIR  = os.path.dirname(EVAL_DIR)   # one level up (the project root)
 TRAIN_SCRIPT = os.path.join(EVAL_DIR, "train_and_publish.py")
 EVAL_SCRIPT  = os.path.join(EVAL_DIR, "eval_all.py")
  
-# ── Helpers ───────────────────────────────────────────────────────────────────
- 
+# Helpers
 def all_configs():
     keys   = list(SEARCH_SPACE.keys())
     values = list(SEARCH_SPACE.values())
@@ -249,8 +241,7 @@ def print_final_leaderboard(results: list):
         print(f"  Checkpoint: {best.get('checkpoint_path', 'N/A')}")
  
  
-# ── Main ──────────────────────────────────────────────────────────────────────
- 
+# Main function
 def main():
     parser = argparse.ArgumentParser(description="Grid search over training hyperparameters")
     parser.add_argument("--limit",      type=int,  default=None,
@@ -302,7 +293,7 @@ def main():
  
         run_start = time.perf_counter()
  
-        # ── Train ──────────────────────────────────────────────────────────
+        # Train:
         checkpoint_path = run_training(cfg, ckpt_name, args.no_publish)
         if checkpoint_path is None:
             record = {
@@ -320,7 +311,7 @@ def main():
             save_results(results, args.output)
             continue
  
-        # ── Evaluate ───────────────────────────────────────────────────────
+        # Evaluate:
         metrics = run_evaluation(checkpoint_path, args.limit)
         baseline_check = passes_baselines(metrics)
         passed = all_passed(baseline_check)
@@ -359,146 +350,3 @@ def main():
  
 if __name__ == "__main__":
     main()
-
-# import itertools
-# import subprocess
-# import json
-# import os
-# import time
-
-# # =========================
-# # 🔧 HYPERPARAMETER GRID
-# # =========================
-# learning_rates = [5e-5, 1e-4] #[1e-5, 5e-5, 1e-4, 3e-4]
-# batch_sizes = [4, 8]
-# ranks = [16, 32]
-# num_steps_list = [20]
-
-# # =========================
-# # 📁 OUTPUT TRACKING
-# # =========================
-# RESULTS_FILE = "grid_results.json"
-
-# def run_command(cmd):
-#     print(f"\nRunning: {cmd}\n")
-#     result = subprocess.run(cmd, shell=True)
-#     if result.returncode != 0:
-#         print("❌ Command failed")
-#         return False
-#     return True
-
-# def load_submission():
-#     path = "evaluation/submission.json"
-#     if not os.path.exists(path):
-#         return None
-#     with open(path) as f:
-#         return json.load(f)
-
-# def extract_metrics(submission):
-#     try:
-#         return {
-#             "ifeval": submission["ifeval"]["metrics"]["google/IFEval/final_acc"],
-#             "gsm8k": submission["gsm8k"]["metrics"]["openai/gsm8k/accuracy"],
-#             "humaneval": submission["humaneval"]["metrics"]["openai/openai_humaneval/accuracy"],
-#         }
-#     except:
-#         return None
-
-# def main():
-#     all_results = []
-
-#     grid = list(itertools.product(
-#         learning_rates,
-#         batch_sizes,
-#         ranks,
-#         num_steps_list
-#     ))
-
-#     print(f"Total experiments: {len(grid)}")
-
-#     for i, (lr, bs, rank, steps) in enumerate(grid):
-#         print("\n" + "="*80)
-#         print(f"RUN {i+1}/{len(grid)} | lr={lr}, bs={bs}, rank={rank}, steps={steps}")
-#         print("="*80)
-
-#         ckpt_name = f"lr{lr}_bs{bs}_r{rank}_s{steps}"
-
-#         # =========================
-#         # 🚀 TRAIN
-#         # =========================
-#         train_cmd = f"""
-#         python evaluation/train_and_publish.py \
-#             --num_steps {steps} \
-#             --batch_size {bs} \
-#             --lr {lr} \
-#             --rank {rank} \
-#             --checkpoint_name {ckpt_name}
-#         """
-
-#         if not run_command(train_cmd):
-#             continue
-
-#         # =========================
-#         # 📦 LOAD CHECKPOINT PATH
-#         # =========================
-#         with open("evaluation/checkpoint_info.json") as f:
-#             info = json.load(f)
-
-#         checkpoint_path = info["checkpoint_path"]
-
-#         # =========================
-#         # 🧪 EVAL (fast first)
-#         # =========================
-#         eval_cmd = f"""
-#         python evaluation/eval_all.py \
-#             --checkpoint_path "{checkpoint_path}" \
-#             --base_model meta-llama/Llama-3.1-8B \
-#             --limit 50
-#         """
-
-#         if not run_command(eval_cmd):
-#             continue
-
-#         submission = load_submission()
-#         metrics = extract_metrics(submission)
-
-#         result = {
-#             "lr": lr,
-#             "batch_size": bs,
-#             "rank": rank,
-#             "steps": steps,
-#             "checkpoint": checkpoint_path,
-#             "metrics": metrics
-#         }
-
-#         print("📊 Result:", result)
-
-#         all_results.append(result)
-
-#         # Save progressively
-#         with open(RESULTS_FILE, "w") as f:
-#             json.dump(all_results, f, indent=2)
-
-#         time.sleep(2)  # avoid hammering API
-
-#     print("\n✅ Grid search complete")
-
-#     # =========================
-#     # 🏆 FIND BEST MODEL
-#     # =========================
-#     best = None
-#     best_score = -1
-
-#     for r in all_results:
-#         if r["metrics"] is None:
-#             continue
-#         score = r["metrics"]["gsm8k"]  # choose your metric here
-#         if score > best_score:
-#             best_score = score
-#             best = r
-
-#     print("\n🏆 BEST CONFIG:")
-#     print(best)
-
-# if __name__ == "__main__":
-#     main()
