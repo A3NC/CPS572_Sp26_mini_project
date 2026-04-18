@@ -21,6 +21,7 @@ import json
 import os
 import random
 import time
+import math
 
 import numpy as np
 import tinker
@@ -360,16 +361,22 @@ def main():
     max_attained_stage = -1
     train_data = None
     val_batches = None
-    for step in range(args.num_steps):
+    cum_weights = [0]+list(accumulate(data_weights))
+    step = -1
+    stage = -1
+
+    while step < args.num_steps:
+        step += 1
         # Cycle through training data
         # start = (step * args.batch_size) % len(train_data)
         # batch = [train_data[i % len(train_data)] for i in range(start, start + args.batch_size)]
         # batch = [train_data[random.randint(0, len(train_data)-1)] for _ in range(batch_size)]
         
-        ratio = step/args.num_steps
-        stage = next(i for i, c in enumerate(accumulate(data_weights)) if ratio < c)
-        if stage > max_attained_stage:
-            max_attained_stage = stage
+        ratio = (step+1)/args.num_steps
+        if ratio > cum_weights[stage + 1]:
+            stage += 1
+            if stage >= num_stages:
+                break
             print(f"Starting training curriculum: {stage}")
             train_data = train_sets[stage]
             val_batches = val_batches_bystage[stage]
@@ -392,7 +399,7 @@ def main():
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
         
-        print(f" Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
+        print(f"Curriculum {stage} | Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
         
         # Validation
         should_validate = (((step + 1) % args.val_every == 0) or (step == args.num_steps - 1)) and len(val_batches) > 0
@@ -433,7 +440,13 @@ def main():
                 
                 if patience_counter >= args.patience:
                     print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={prev_val_loss:.4f})")
-                    break
+                    print(f"  Ending curriculum {stage}")
+                    if stage == num_stages - 1:
+                        break
+                    else:
+                        step = int(cum_weights[stage] * args.num_steps + 1)
+                        patience_counter = 0
+                        continue
             
         ###
         else: 
