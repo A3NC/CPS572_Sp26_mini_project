@@ -178,7 +178,7 @@ def format_opencode(example):
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
-    parser.add_argument("--num_steps", type=int, default=400, help="Number of training steps")
+    parser.add_argument("--num_steps", type=int, default=350, help="Number of training steps")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--lr", type=float, default=7e-5, help="Learning rate")
     parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
@@ -222,7 +222,7 @@ def main():
     def process_dataset(name):
         if name == "tutu":
             ds = load_dataset("allenai/tulu-3-sft-personas-instruction-following", split = "train", streaming=True)
-            dataset_tutu = list(ds.take(1000))
+            dataset_tutu = list(ds.take(2000))
             dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
             return dataset_tutu
         if name == "gsm8k":
@@ -237,7 +237,7 @@ def main():
             return dataset_mbpp
         if name == "opencode":
             ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
-            dataset = list(ds.take(1000))
+            dataset = list(ds.take(2000))
             dataset = to_datum([format_opencode(s) for s in dataset])
             return dataset
 
