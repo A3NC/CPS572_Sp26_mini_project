@@ -1,9 +1,9 @@
 {
-  "checkpoint_path": "tinker://19f5bf2c-c9cb-554e-bca2-e0757dad3e73:train:0/sampler_weights/demo",
+  "checkpoint_path": "tinker://de184c88-9a06-5368-95c8-228f0b63b8fb:train:0/sampler_weights/demo",
   "base_model": "meta-llama/Llama-3.1-8B",
   "renderer_name": "role_colon",
   "training": {
-    "num_steps": 400,
+    "num_steps": 350,
     "batch_size": 16,
     "learning_rate": 7e-05,
     "lora_rank": 64

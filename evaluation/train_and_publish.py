@@ -305,6 +305,9 @@ def main():
     #Early Stopping Variables
     prev_val_loss = float("inf")
     patience_counter = 0    
+    
+    train_loss_vals = [] 
+    val_loss_vals = []
 
     for step in range(args.num_steps):
         # Cycle through training data
@@ -327,6 +330,8 @@ def main():
             train_total += float(np.dot(logprobs, weights))
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
+        
+        train_loss_vals.append(train_loss)
         
         print(f" Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
         
@@ -351,6 +356,8 @@ def main():
             ###
             val_block_elapsed = time.perf_counter() - val_block_start
             ###
+            
+            val_loss_vals.append(val_loss)
         
             print(
                 f"  Step {step+1}/{args.num_steps} | Val Loss: {val_loss:.4f}"
@@ -410,6 +417,11 @@ def main():
     print(f"\nNext: evaluate your checkpoint with")
     print(f"  python -m evaluation.eval_all --checkpoint_path \"{checkpoint_path}\" --base_model {MODEL}")
 
+    print()
+    print("Training loss values:")
+    print(train_loss_vals)
+    print("Validation loss values:")
+    print(val_loss_vals)
 
 if __name__ == "__main__":
     main()
