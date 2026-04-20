@@ -22,6 +22,7 @@ import os
 import random
 import time
 import math
+import re
 
 import numpy as np
 import tinker
@@ -141,15 +142,58 @@ def format_tutu(example):
             instruction, response
         ]
 
+def deduplicate_conversations(conversations):
+    seen = set()
+    deduped = []
+    for convo in conversations:
+        key = json.dumps(convo, sort_keys=True, ensure_ascii=False)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(convo)
+    return deduped
+
 def format_gsm8k(example):
+    question = str(example.get("question", "")).strip()
+    raw_answer = str(example.get("answer", "")).strip()
+
+    if not question or not raw_answer:
+        return None
+
+    # Remove calculator artifacts in the source, e.g. <<48/2=24>>.
+    cleaned_answer = re.sub(r"<<[^>]+>>", "", raw_answer)
+    cleaned_answer = re.sub(r"\s+", " ", cleaned_answer).strip()
+
+    parts = cleaned_answer.split("####", 1)
+    reasoning = parts[0].strip()
+    final_answer = parts[1].strip() if len(parts) > 1 else ""
+
+    # Recover a trailing numeric answer for rows missing '####'.
+    if not final_answer:
+        match = re.search(r"(-?\d+(?:\.\d+)?)\s*$", reasoning)
+        if match:
+            final_answer = match.group(1)
+
+    # Filter out low-quality or truncated targets.
+    if len(reasoning) < 20 or not final_answer:
+        return None
+
+    user_prompt = (
+        "Solve this math word problem. Reason step by step, then end with "
+        "'Final answer: <number>'.\n\n"
+        f"Problem: {question}"
+    )
+
+    assistant_response = f"{reasoning}\nFinal answer: {final_answer}"
+
     return [
             {
                 "role": "user",
-                "content": example['question']
+                "content": user_prompt
             },
             {
                 "role": "assistant",
-                "content": example["answer"]
+                "content": assistant_response
             }
         ]
 
@@ -176,17 +220,29 @@ def format_opencode(example):
                 "content": example['output']
             }
         ]
+    
+def format_magicoder(example): 
+    return [
+            {
+                "role": "user",
+                "content": example['problem']
+            },
+            {
+                "role": "assistant",
+                "content": example['solution']
+            }
+    ]
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
-    parser.add_argument("--num_steps", type=int, default=350, help="Number of training steps")
+    parser.add_argument("--num_steps", type=int, default=600, help="Number of training steps")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
-    parser.add_argument("--lr", type=float, default=7e-5, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
-    parser.add_argument("--val_every", type=int, default=10, help="Validate every N steps")
+    parser.add_argument("--val_every", type=int, default=15, help="Validate every N steps")
     parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size")
     parser.add_argument("--early_stopping", type=bool, default=True, help="Early Stopping")
     parser.add_argument("--patience", type=int, default=4, help="Early stopping patience (number of validations to wait for improvement)")
@@ -249,17 +305,22 @@ def main():
             if split:
                 easy, medium, hard = split_by_difficulty(dataset_tutu, "tutu")
                 return {"easy": easy, "medium": medium, "hard": hard}
-            dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
+            dataset_tutu = deduplicate_conversations([format_tutu(s) for s in dataset_tutu])
+            dataset_tutu = to_datum(dataset_tutu)
             return dataset_tutu
         if name == "tutu-gsm":
             ds = load_dataset("allenai/tulu-3-sft-personas-math-grade-filtered", split = "train", streaming=True)
             dataset_tutu = list(ds.take(2000))
-            dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
+            dataset_tutu = deduplicate_conversations([format_tutu(s) for s in dataset_tutu])
+            dataset_tutu = to_datum(dataset_tutu)
             return dataset_tutu
         if name == "gsm8k":
-            dataset_gsm = load_dataset("gsm8k", "main", split = "train")
-            # print([format_gsm8k(s) for s in dataset_gsm][:10])
-            dataset_gsm = to_datum([format_gsm8k(s) for s in dataset_gsm])
+            raw_gsm = load_dataset("gsm8k", "main", split = "train")
+            formatted_gsm = [format_gsm8k(s) for s in raw_gsm]
+            filtered_gsm = [s for s in formatted_gsm if s is not None]
+            filtered_gsm = deduplicate_conversations(filtered_gsm)
+            print(f"  GSM8K filtered samples: {len(filtered_gsm)}")
+            dataset_gsm = to_datum(filtered_gsm)
             return dataset_gsm
         if name == "mbpp":
             dataset_mbpp = load_dataset("mbpp", split = "train")
@@ -269,8 +330,15 @@ def main():
         if name == "opencode":
             ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
             dataset = list(ds.take(3000))
-            dataset = to_datum([format_opencode(s) for s in dataset if float(s["average_test_score"]) > 0.8])
+            dataset = [format_opencode(s) for s in dataset if float(s["average_test_score"]) > 0.8]
+            dataset = deduplicate_conversations(dataset)
+            dataset = to_datum(dataset)
             return dataset
+        if name == "magicoder": 
+            ds = load_dataset("ise-uiuc/Magiccoder-0SS-Instruct-75K", split = "train", streaming = True)
+            dataset = list(ds.take(3000))
+            dataset = [format_magicoder(s) for s in dataset]
+            return dataset 
 
         raise ValueError("Invalid dataset name.")
     # dataset_tutu = process_dataset("tutu") #tutu for ifEval
@@ -280,6 +348,10 @@ def main():
 
     dataset_tutu_split = process_dataset("tutu", split = True)
     dataset_gsm_additional = process_dataset("tutu-gsm")
+    
+    # dataset_gsm = dataset_gsm_additional 
+    # dataset_gsm = dataset_gsm + dataset_gsm_additional 
+    # dataset_coding = process_dataset("magicoder")
 
     def sample_from_dataset(dataset, value):
         passes = value // len(dataset)
@@ -287,33 +359,33 @@ def main():
 
     # TODO: tune these
     # START OF WEIGHTS
-    total_samples = 3000
+    total_samples = 6000
     num_stages = 3
-    data_weights = [0.3, 0.5, 0.2] # proportion of training samples allotted to each learning stage
+    data_weights = [0.25, 0.55, 0.20] # proportion of training samples allotted to each learning stage
 
     # proportion of tasks in each stage
     stage_weights = [
 
         # stage 0
-        {"if-eval easy": 0.4,
-        "if-eval medium": 0.1,
-        "if-eval hard": 0,
-        "gsm8k": 0.3,
-        "humaneval": 0.2},
+        {"if-eval easy": 0.35,
+        "if-eval medium": 0.10,
+        "if-eval hard": 0.00,
+        "gsm8k": 0.40,
+        "humaneval": 0.15},
 
         # stage 1
-        {"if-eval easy": 0,
-        "if-eval medium": 0.1,
-        "if-eval hard": 0.2,
-        "gsm8k": 0.5,
-        "humaneval": 0.2},
+        {"if-eval easy": 0.00,
+        "if-eval medium": 0.10,
+        "if-eval hard": 0.10,
+        "gsm8k": 0.65,
+        "humaneval": 0.15},
 
         # stage 2
         {"if-eval easy": 0,
-        "if-eval medium": 0,
-        "if-eval hard": 0.3,
-        "gsm8k": 0.3,
-        "humaneval": 0.4}
+        "if-eval medium": 0.00,
+        "if-eval hard": 0.25,
+        "gsm8k": 0.35,
+        "humaneval": 0.40}
 
     ]
 
@@ -354,8 +426,8 @@ def main():
     adam_params = types.AdamParams(learning_rate=args.lr, beta1=0.9, beta2=0.95, eps=1e-8)
     print(f"\nTraining for {args.num_steps} steps (batch_size={args.batch_size}, lr={args.lr})...")
     
-    #Early Stopping Variables
-    prev_val_loss = float("inf")
+    # Early stopping tracks the best val loss seen in the current stage.
+    best_val_loss = float("inf")
     patience_counter = 0    
 
     max_attained_stage = -1
@@ -364,6 +436,9 @@ def main():
     cum_weights = [0]+list(accumulate(data_weights))
     step = -1
     stage = -1
+    
+    train_loss_store = [] 
+    val_loss_store = [] 
 
     while step < args.num_steps:
         step += 1
@@ -381,6 +456,8 @@ def main():
             train_data = train_sets[stage]
             val_batches = val_batches_bystage[stage]
             val_data = val_sets[stage]
+            best_val_loss = float("inf")
+            patience_counter = 0
 
         batch = random.sample(train_data, args.batch_size) 
         
@@ -399,14 +476,16 @@ def main():
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
         
-        print(f"Curriculum {stage} | Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
+        train_loss_store.append(train_loss)
+        
+        ##print(f"Curriculum {stage} | Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")##
         
         # Validation
         should_validate = (((step + 1) % args.val_every == 0) or (step == args.num_steps - 1)) and len(val_batches) > 0
         if should_validate:
             ###
             val_block_start = time.perf_counter()
-            print(f"  Step {step+1}/{args.num_steps} | validation block start @ {time.strftime('%H:%M:%S')}")
+            ##print(f"  Step {step+1}/{args.num_steps} | validation block start @ {time.strftime('%H:%M:%S')}")
             ###
             val_total = 0.0
             val_count = 0.0
@@ -422,7 +501,7 @@ def main():
             ###
             val_block_elapsed = time.perf_counter() - val_block_start
             ###
-        
+            val_loss_store.append(val_loss)
             print(
                 f"  Step {step+1}/{args.num_steps} | Val Loss: {val_loss:.4f}"
                 f" | Val Time: {val_block_elapsed:.2f}s | Val Examples: {len(val_data)}"
@@ -430,21 +509,21 @@ def main():
 
             # Early Stopping (optional)
             if args.early_stopping:
-                if val_loss <= prev_val_loss:
-                    prev_val_loss = val_loss
+                if val_loss <= best_val_loss:
+                    best_val_loss = val_loss
                     patience_counter = 0
                 else:
                     patience_counter += 1
-                    prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
                     print(f"  No improvement in val_loss. Patience counter: {patience_counter}/{args.patience}")
                 
                 if patience_counter >= args.patience:
-                    print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={prev_val_loss:.4f})")
+                    print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={best_val_loss:.4f})")
                     print(f"  Ending curriculum {stage}")
                     if stage == num_stages - 1:
                         break
                     else:
-                        step = int(cum_weights[stage] * args.num_steps + 1)
+                        # Jump to the next stage boundary instead of rewinding this stage.
+                        step = int(cum_weights[stage + 1] * args.num_steps)
                         patience_counter = 0
                         continue
             
@@ -486,6 +565,11 @@ def main():
     print(f"\nCheckpoint info saved to {info_path}")
     print(f"\nNext: evaluate your checkpoint with")
     print(f"  python -m evaluation.eval_all --checkpoint_path \"{checkpoint_path}\" --base_model {MODEL}")
+    
+    print("Training Losses:")
+    print(train_loss_store) 
+    print("Validation Losses:")
+    print(val_loss_store)
 
 
 if __name__ == "__main__":
