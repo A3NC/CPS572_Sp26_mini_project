@@ -180,16 +180,16 @@ def format_opencode(example):
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
-    parser.add_argument("--num_steps", type=int, default=350, help="Number of training steps")
+    parser.add_argument("--num_steps", type=int, default=600, help="Number of training steps")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
-    parser.add_argument("--lr", type=float, default=7e-5, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
     parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
     parser.add_argument("--val_every", type=int, default=10, help="Validate every N steps")
     parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size")
     parser.add_argument("--early_stopping", type=bool, default=True, help="Early Stopping")
-    parser.add_argument("--patience", type=int, default=4, help="Early stopping patience (number of validations to wait for improvement)")
+    parser.add_argument("--patience", type=int, default=2, help="Early stopping patience (number of validations to wait for improvement)")
     args = parser.parse_args()
 
     # Setup
@@ -289,32 +289,16 @@ def main():
     # START OF WEIGHTS
     total_samples = 3000
     num_stages = 3
-    data_weights = [0.3, 0.5, 0.2] # proportion of training samples allotted to each learning stage
+    data_weights = [0.25, 0.55, 0.2] # proportion of training samples allotted to each learning stage
 
     # proportion of tasks in each stage
-    stage_weights = [
-
-        # stage 0
-        {"if-eval easy": 0.4,
-        "if-eval medium": 0.1,
-        "if-eval hard": 0,
-        "gsm8k": 0.3,
-        "humaneval": 0.2},
-
-        # stage 1
-        {"if-eval easy": 0,
-        "if-eval medium": 0.1,
-        "if-eval hard": 0.2,
-        "gsm8k": 0.5,
-        "humaneval": 0.2},
-
-        # stage 2
-        {"if-eval easy": 0,
-        "if-eval medium": 0,
-        "if-eval hard": 0.3,
-        "gsm8k": 0.3,
-        "humaneval": 0.4}
-
+    stage_weights = [ #newest!!!!
+        # Stage 0: similar warmup
+        {"if-eval easy": 0.35, "if-eval medium": 0.10, "if-eval hard": 0.00, "gsm8k": 0.40, "humaneval": 0.15},
+        # Stage 1: make GSM8K dominant
+        {"if-eval easy": 0.00, "if-eval medium": 0.10, "if-eval hard": 0.10, "gsm8k": 0.65, "humaneval": 0.15},
+        # Stage 2: finish with code + hard IF, minimal math to avoid forgetting
+        {"if-eval easy": 0.00, "if-eval medium": 0.00, "if-eval hard": 0.30, "gsm8k": 0.20, "humaneval": 0.50},
     ]
 
     # END OF WEIGHTS
@@ -435,7 +419,7 @@ def main():
                     patience_counter = 0
                 else:
                     patience_counter += 1
-                    prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
+                   # prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
                     print(f"  No improvement in val_loss. Patience counter: {patience_counter}/{args.patience}")
                 
                 if patience_counter >= args.patience:
@@ -446,6 +430,8 @@ def main():
                     else:
                         step = int(cum_weights[stage] * args.num_steps + 1)
                         patience_counter = 0
+                        stage += 1
+                        print(f"  Starting curriculum {stage} at step {step+1}")
                         continue
             
         ###
