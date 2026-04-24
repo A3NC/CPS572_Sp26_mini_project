@@ -21,6 +21,7 @@ import json
 import os
 import random
 import time
+import math
 
 import numpy as np
 import tinker
@@ -32,6 +33,7 @@ from tinker_cookbook.tokenizer_utils import get_tokenizer
 
 from torch.utils.data import Dataset
 from datasets import load_dataset
+from itertools import accumulate
 
 # MODEL = "meta-llama/Llama-3.2-3B"
 # MODEL = "meta-llama/Llama-3.2-1B"    # Smaller, faster for development
@@ -151,6 +153,18 @@ def format_gsm8k(example):
             }
         ]
 
+def format_magicoder(example): #sandra added
+    return [
+            {
+                "role": "user",
+                "content": example['problem']
+            },
+            {
+                "role": "assistant",
+                "content": example["solution"]
+            }
+        ]
+
 def format_mbpp(example):
     return [
             {
@@ -178,16 +192,16 @@ def format_opencode(example):
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
-    parser.add_argument("--num_steps", type=int, default=10, help="Number of training steps")
-    parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--rank", type=int, default=32, help="LoRA rank")
+    parser.add_argument("--num_steps", type=int, default=200, help="Number of training steps")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+    parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
-    parser.add_argument("--val_every", type=int, default=5, help="Validate every N steps")
+    parser.add_argument("--val_every", type=int, default=10, help="Validate every N steps")
     parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size")
     parser.add_argument("--early_stopping", type=bool, default=True, help="Early Stopping")
-    parser.add_argument("--patience", type=int, default=2, help="Early stopping patience (number of validations to wait for improvement)")
+    parser.add_argument("--patience", type=int, default=4, help="Early stopping patience (number of validations to wait for improvement)")
     args = parser.parse_args()
 
     # Setup
@@ -200,13 +214,14 @@ def main():
     # Prepare training data
     print("Preparing training data...")
 
-    def split_dataset(all_data):
+    def split_dataset(all_data, verbose = True):
         # 75/25 train/validation split
         indices = random.sample(range(len(all_data)), len(all_data))
         train_size = int(0.75 * len(all_data))
         train_data = [all_data[i] for i in indices[:train_size]]
         val_data = [all_data[i] for i in indices[train_size:]]
-        print(f"  Total Data: {len(all_data)} | Train: {len(train_data)} | Val: {len(val_data)}")
+        if verbose:
+            print(f"  Total Data: {len(all_data)} | Train: {len(train_data)} | Val: {len(val_data)}")
         return train_data, val_data
     
     def to_datum(dataset):
@@ -219,10 +234,38 @@ def main():
             all_data.append(datum)
         return all_data
 
-    def process_dataset(name):
+    def split_by_difficulty(dataset, name):
         if name == "tutu":
-            ds = load_dataset("allenai/tulu-3-sft-mixture", split = "train", streaming=True)
-            dataset_tutu = list(ds.take(1000))
+            # tutu ifeval dataset
+            easy, medium, hard = [],[],[]
+            for data in dataset:
+                difficulty = len(data.get("constraints") or [])
+                if difficulty < 2:
+                    easy.append(format_tutu(data))
+                elif difficulty == 2:
+                    medium.append(format_tutu(data))
+                else:
+                    hard.append(format_tutu(data))
+            # print(f"{len(easy)}, {len(medium), {len(hard)}}")
+            # print(easy[1])
+            # print(medium[1])
+            # print(hard[1])
+            easy, medium, hard = to_datum(easy), to_datum(medium), to_datum(hard)
+            return easy, medium, hard
+        raise NotImplementedError()
+
+    def process_dataset(name, split = False):
+        if name == "tutu":
+            ds = load_dataset("allenai/tulu-3-sft-personas-instruction-following", split = "train", streaming=True)
+            dataset_tutu = list(ds.take(5000))
+            if split:
+                easy, medium, hard = split_by_difficulty(dataset_tutu, "tutu")
+                return {"easy": easy, "medium": medium, "hard": hard}
+            dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
+            return dataset_tutu
+        if name == "tutu-gsm":
+            ds = load_dataset("allenai/tulu-3-sft-personas-math-grade-filtered", split = "train", streaming=True)
+            dataset_tutu = list(ds.take(2000))
             dataset_tutu = to_datum([format_tutu(s) for s in dataset_tutu])
             return dataset_tutu
         if name == "gsm8k":
@@ -237,60 +280,118 @@ def main():
             return dataset_mbpp
         if name == "opencode":
             ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
-            dataset = list(ds.take(1000))
-            dataset = to_datum([format_opencode(s) for s in dataset])
+            dataset = list(ds.take(3000))
+            dataset = to_datum([format_opencode(s) for s in dataset if float(s["average_test_score"]) > 0.8])
+            return dataset
+        if name == "metamath":
+            ds = load_dataset("meta-math/MetaMathQA", split="train", streaming=True)
+            dataset = list(ds.take(20000))
+            dataset = to_datum([
+                [{"role": "user", "content": x["query"]},
+                 {"role": "assistant", "content": x["response"]}]
+                for x in dataset
+            ])
+            return dataset
+        if name == "magicoder":
+            ds = load_dataset("ise-uiuc/Magicoder-OSS-Instruct-75K", split="train", streaming=True)
+            dataset = list(ds.take(3000))
+            dataset = to_datum([format_magicoder(s) for s in dataset])
             return dataset
 
         raise ValueError("Invalid dataset name.")
-    dataset_tutu = process_dataset("tutu") #tutu for ifEval
-    dataset_gsm = process_dataset("gsm8k") #gsm8k
-    # dataset_coding_train, dataset_coding_val = process_dataset("mbpp") #mbpp dataset for HumanEval
-    dataset_coding = process_dataset("opencode") #opencode dataset for HumanEval
+    dataset_gsm = process_dataset("gsm8k")
+    dataset_coding = process_dataset("mbpp")
 
-    # train_data = MixedDataset(
-    #     datasets = {
-    #         "tutu": dataset_tutu_train,
-    #         "gsm8k": dataset_gsm_train,
-    #         "mbpp": dataset_coding_train
-    #     },
-    #     weights = {
-    #         "tutu": 0.3,
-    #         "gsm8k": 0.4,
-    #         "mbpp": 0.3
-    #     },
-    #     total_size = 1500
-    # )
+    dataset_tutu_split = process_dataset("tutu", split = True)
+    dataset_gsm_additional = process_dataset("tutu-gsm")
+    dataset_metamath = process_dataset("metamath")
 
-    # val_data = MixedDataset(
-    #     datasets = {
-    #         "tutu": dataset_tutu_val,
-    #         "gsm8k": dataset_gsm_val,
-    #         "mbpp": dataset_coding_val
-    #     },
-    #     weights = {
-    #         "tutu": 0.3,
-    #         "gsm8k": 0.4,
-    #         "mbpp": 0.3
-    #     },
-    #     total_size = 500
-    # )
+    gsm_combined = dataset_gsm + dataset_gsm_additional + dataset_metamath
 
     def sample_from_dataset(dataset, value):
         passes = value // len(dataset)
         return dataset * passes + random.sample(dataset, value - passes * len(dataset))
 
-    all_data = sample_from_dataset(dataset_tutu, 600) + sample_from_dataset(dataset_gsm, 800) + sample_from_dataset(dataset_coding, 600) 
-    random.shuffle(all_data)
-    # all_data = []
-    # for i in range(len(DEMO_CONVERSATIONS)):
-    #     convo = DEMO_CONVERSATIONS[i]
-    #     datum = conversation_to_datum(
-    #         convo, renderer, max_length=512, train_on_what=renderers.TrainOnWhat.ALL_ASSISTANT_MESSAGES
-    #     )
-    #     all_data.append(datum)
+    # TODO: tune these
+    # START OF WEIGHTS
+    total_samples = 5000
+    num_stages = 3
+    
+    #data_weights = [0.15, 0.40, 0.45] # newest
+    #data_weights = [0.25, 0.55, 0.2] # newer -- got best results w/ this one!!!!!
+    data_weights = [0.20, 0.45, 0.35] # more stage 2 for code
+    #data_weights = [0.3, 0.5, 0.2] # proportion of training samples allotted to each learning stage
 
-    train_data, val_data = split_dataset(all_data)
-    val_batches = [val_data[i : i + args.val_batch_size] for i in range(0, len(val_data), args.val_batch_size)]
+    # proportion of tasks in each stage
+
+    # stage_weights = [ # newest -- untested
+    #     # Stage 0: lighter warmup
+    #     {"if-eval easy": 0.30, "if-eval medium": 0.10, "if-eval hard": 0.00, "gsm8k": 0.45, "humaneval": 0.15},
+    #     # Stage 1: boost GSM8K, grow humaneval earlier
+    #     {"if-eval easy": 0.00, "if-eval medium": 0.10, "if-eval hard": 0.05, "gsm8k": 0.60, "humaneval": 0.25},
+    #     # Stage 2: heavy code push, hard IF, keep some math for retention
+    #     {"if-eval easy": 0.00, "if-eval medium": 0.00, "if-eval hard": 0.25, "gsm8k": 0.15, "humaneval": 0.60},
+    # ]
+    stage_weights = [ # got best results w this version!!!!
+        # Stage 0: similar warmup
+        {"if-eval easy": 0.35, "if-eval medium": 0.10, "if-eval hard": 0.00, "gsm8k": 0.40, "humaneval": 0.15},
+        # Stage 1: GSM8K dominant but grow code earlier
+        {"if-eval easy": 0.00, "if-eval medium": 0.10, "if-eval hard": 0.10, "gsm8k": 0.55, "humaneval": 0.25},
+        # Stage 2: finish with code + hard IF, minimal math to avoid forgetting
+        {"if-eval easy": 0.00, "if-eval medium": 0.00, "if-eval hard": 0.30, "gsm8k": 0.20, "humaneval": 0.50},
+    ]
+
+    # stage_weights = [
+
+    #     # stage 0
+    #     {"if-eval easy": 0.4,
+    #     "if-eval medium": 0.1,
+    #     "if-eval hard": 0,
+    #     "gsm8k": 0.3,
+    #     "humaneval": 0.2},
+
+    #     # stage 1
+    #     {"if-eval easy": 0,
+    #     "if-eval medium": 0.1,
+    #     "if-eval hard": 0.2,
+    #     "gsm8k": 0.5,
+    #     "humaneval": 0.2},
+
+    #     # stage 2
+    #     {"if-eval easy": 0,
+    #     "if-eval medium": 0,
+    #     "if-eval hard": 0.3,
+    #     "gsm8k": 0.3,
+    #     "humaneval": 0.4}
+
+    # ]
+
+    # END OF WEIGHTS
+
+    stage_samples = [total_samples * dw for dw in data_weights]
+    train_sets = []
+    val_sets = []
+
+    for s in range(num_stages):
+        stage_dataset = (sample_from_dataset(dataset_tutu_split["easy"], int(stage_samples[s] * stage_weights[s]["if-eval easy"])) 
+            + sample_from_dataset(dataset_tutu_split["medium"], int(stage_samples[s] * stage_weights[s]["if-eval medium"])) 
+            + sample_from_dataset(dataset_tutu_split["hard"], int(stage_samples[s] * stage_weights[s]["if-eval hard"])) 
+            + sample_from_dataset(gsm_combined, int(stage_samples[s] * stage_weights[s]["gsm8k"])) 
+            + sample_from_dataset(dataset_coding, int(stage_samples[s] * stage_weights[s]["humaneval"])))
+        random.shuffle(stage_dataset)
+        train_stage, val_stage = split_dataset(stage_dataset)
+        train_sets.append(train_stage)
+        val_sets.append(val_stage)
+
+
+    # all_data = sample_from_dataset(dataset_tutu, 600) + sample_from_dataset(dataset_gsm, 800) + sample_from_dataset(dataset_coding, 600) 
+    # random.shuffle(all_data)
+
+    # train_data, val_data = split_dataset(all_data)
+    # val_batches = [val_data[i : i + args.val_batch_size] for i in range(0, len(val_data), args.val_batch_size)]
+
+    val_batches_bystage = [[val_data[i : i + args.val_batch_size] for i in range(0, len(val_data), args.val_batch_size)] 
+                    for val_data in val_sets]
 
     # Create training client
     print(f"Creating LoRA training client (rank={args.rank})...")
@@ -303,14 +404,36 @@ def main():
     print(f"\nTraining for {args.num_steps} steps (batch_size={args.batch_size}, lr={args.lr})...")
     
     #Early Stopping Variables
-    prev_val_loss = float("inf")
-    patience_counter = 0    
+    best_val_loss = float("inf")
+    patience_counter = 0
 
-    for step in range(args.num_steps):
+    max_attained_stage = -1
+    train_data = None
+    val_batches = None
+    cum_weights = [0]+list(accumulate(data_weights))
+    step = -1
+    stage = -1
+
+    train_losses = []
+    val_losses = []
+
+    while step < args.num_steps:
+        step += 1
         # Cycle through training data
         # start = (step * args.batch_size) % len(train_data)
         # batch = [train_data[i % len(train_data)] for i in range(start, start + args.batch_size)]
         # batch = [train_data[random.randint(0, len(train_data)-1)] for _ in range(batch_size)]
+        
+        ratio = (step+1)/args.num_steps
+        if ratio > cum_weights[stage + 1]:
+            stage += 1
+            if stage >= num_stages:
+                break
+            print(f"Starting training curriculum: {stage}")
+            train_data = train_sets[stage]
+            val_batches = val_batches_bystage[stage]
+            val_data = val_sets[stage]
+
         batch = random.sample(train_data, args.batch_size) 
         
         fwd_bwd_future = tc.forward_backward(batch, loss_fn="cross_entropy")
@@ -328,7 +451,10 @@ def main():
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
         
-        print(f" Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
+        train_losses.append({"step": step+1, "stage": stage, "train_loss": train_loss})
+
+        
+        print(f"Curriculum {stage} | Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
         
         # Validation
         should_validate = (((step + 1) % args.val_every == 0) or (step == args.num_steps - 1)) and len(val_batches) > 0
@@ -348,6 +474,8 @@ def main():
                 val_count += float(batch_weights.sum())
 
             val_loss = -val_total / max(val_count, 1.0)
+            val_losses.append({"step": step+1, "stage": stage, "val_loss": val_loss})
+
             ###
             val_block_elapsed = time.perf_counter() - val_block_start
             ###
@@ -359,17 +487,26 @@ def main():
 
             # Early Stopping (optional)
             if args.early_stopping:
-                if val_loss <= prev_val_loss:
-                    prev_val_loss = val_loss
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
                     patience_counter = 0
                 else:
                     patience_counter += 1
-                    prev_val_loss = val_loss  # Update previous loss even if no improvement, to make sure high val wasn't a fluke
                     print(f"  No improvement in val_loss. Patience counter: {patience_counter}/{args.patience}")
-                
+
                 if patience_counter >= args.patience:
-                    print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={prev_val_loss:.4f})")
-                    break
+                    print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={best_val_loss:.4f})")
+                    print(f"  Ending curriculum {stage}")
+                    if stage == num_stages - 1:
+                        break
+                    else:
+                        stage += 1
+                        print(f"Starting training curriculum: {stage}")
+                        train_data = train_sets[stage]
+                        val_batches = val_batches_bystage[stage]
+                        val_data = val_sets[stage]
+                        patience_counter = 0
+                        best_val_loss = float("inf")
             
         ###
         else: 
@@ -402,6 +539,8 @@ def main():
             "lora_rank": args.rank,
         },
         "published": not args.no_publish,
+        "train_losses": train_losses,
+        "val_losses": val_losses,
     }
     info_path = os.path.join(EVAL_DIR, "checkpoint_info.json")
     with open(info_path, "w") as f:
