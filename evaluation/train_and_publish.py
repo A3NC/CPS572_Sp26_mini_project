@@ -453,15 +453,15 @@ def main():
         {"if-eval easy": 0.00,
         "if-eval medium": 0.10,
         "if-eval hard": 0.10,
-        "gsm8k": 0.65,
-        "humaneval": 0.15},
+        "gsm8k": 0.55,
+        "humaneval": 0.25},
 
         # stage 2
-        {"if-eval easy": 0,
+        {"if-eval easy": 0.00,
         "if-eval medium": 0.00,
-        "if-eval hard": 0.25,
-        "gsm8k": 0.35,
-        "humaneval": 0.40}
+        "if-eval hard": 0.30,
+        "gsm8k": 0.20,
+        "humaneval": 0.50}
 
     ]
 
