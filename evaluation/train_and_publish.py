@@ -198,6 +198,18 @@ def format_gsm8k(example):
             }
         ]
 
+def format_magicoder(example): #sandra added
+    return [
+            {
+                "role": "user",
+                "content": example['problem']
+            },
+            {
+                "role": "assistant",
+                "content": example["solution"]
+            }
+        ]
+
 def format_mbpp(example):
     return [
             {
@@ -312,6 +324,9 @@ def format_magicoder(example):
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
     parser.add_argument("--num_steps", type=int, default=200, help="Number of training steps")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+    parser.add_argument("--num_steps", type=int, default=200, help="Number of training steps")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
@@ -376,7 +391,7 @@ def main():
     def process_dataset(name, split = False):
         if name == "tutu":
             ds = load_dataset("allenai/tulu-3-sft-personas-instruction-following", split = "train", streaming=True)
-            dataset_tutu = list(ds.take(2000))
+            dataset_tutu = list(ds.take(5000))
             if split:
                 easy, medium, hard = split_by_difficulty(dataset_tutu, "tutu")
                 return {"easy": easy, "medium": medium, "hard": hard}
@@ -405,6 +420,22 @@ def main():
         if name == "opencode":
             ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
             dataset = list(ds.take(3000))
+            dataset = to_datum([res for s in dataset if (res := format_opencode(s, original = True))])
+            return dataset
+        if name == "metamath":
+            ds = load_dataset("meta-math/MetaMathQA", split="train", streaming=True)
+            dataset = list(ds.take(20000))
+            dataset = to_datum([
+                [{"role": "user", "content": x["query"]},
+                 {"role": "assistant", "content": x["response"]}]
+                for x in dataset
+            ])
+            return dataset
+        if name == "magicoder":
+            ds = load_dataset("ise-uiuc/Magicoder-OSS-Instruct-75K", split="train", streaming=True)
+            dataset = list(ds.take(3000))
+            dataset = to_datum([format_magicoder(s) for s in dataset])
+            return dataset
             dataset = [res for s in dataset if (res := format_opencode(s, original = True))]
             dataset = deduplicate_conversations(dataset)
             print(dataset[:5])
@@ -417,13 +448,14 @@ def main():
             return dataset 
 
         raise ValueError("Invalid dataset name.")
-    # dataset_tutu = process_dataset("tutu") #tutu for ifEval
-    dataset_gsm = process_dataset("gsm8k") #gsm8k
-    # dataset_coding_train, dataset_coding_val = process_dataset("mbpp") #mbpp dataset for HumanEval
-    dataset_coding = process_dataset("opencode") #opencode dataset for HumanEval
+    dataset_gsm = process_dataset("gsm8k")
+    dataset_coding = process_dataset("mbpp")
 
     dataset_tutu_split = process_dataset("tutu", split = True)
     dataset_gsm_additional = process_dataset("tutu-gsm")
+    dataset_metamath = process_dataset("metamath")
+
+    gsm_combined = dataset_gsm + dataset_gsm_additional + dataset_metamath
     
     # dataset_gsm = dataset_gsm_additional 
     # dataset_gsm = dataset_gsm + dataset_gsm_additional 
@@ -435,35 +467,34 @@ def main():
 
     # TODO: tune these
     # START OF WEIGHTS
-    total_samples = 6000
+    total_samples = 5000
     num_stages = 3
-    data_weights = [0.25, 0.55, 0.20] # proportion of training samples allotted to each learning stage
+    
+    #data_weights = [0.15, 0.40, 0.45] # newest
+    #data_weights = [0.25, 0.55, 0.2] # newer -- got best results w/ this one!!!!!
+    data_weights = [0.20, 0.45, 0.35] # more stage 2 for code
+    #data_weights = [0.3, 0.5, 0.2] # proportion of training samples allotted to each learning stage
 
     # proportion of tasks in each stage
-    stage_weights = [
 
-        # stage 0
-        {"if-eval easy": 0.35,
-        "if-eval medium": 0.10,
-        "if-eval hard": 0.00,
-        "gsm8k": 0.40,
-        "humaneval": 0.15},
-
-        # stage 1
-        {"if-eval easy": 0.00,
-        "if-eval medium": 0.10,
-        "if-eval hard": 0.10,
-        "gsm8k": 0.55,
-        "humaneval": 0.25},
-
-        # stage 2
-        {"if-eval easy": 0.00,
-        "if-eval medium": 0.00,
-        "if-eval hard": 0.30,
-        "gsm8k": 0.20,
-        "humaneval": 0.50}
-
+    # stage_weights = [ # newest -- untested
+    #     # Stage 0: lighter warmup
+    #     {"if-eval easy": 0.30, "if-eval medium": 0.10, "if-eval hard": 0.00, "gsm8k": 0.45, "humaneval": 0.15},
+    #     # Stage 1: boost GSM8K, grow humaneval earlier
+    #     {"if-eval easy": 0.00, "if-eval medium": 0.10, "if-eval hard": 0.05, "gsm8k": 0.60, "humaneval": 0.25},
+    #     # Stage 2: heavy code push, hard IF, keep some math for retention
+    #     {"if-eval easy": 0.00, "if-eval medium": 0.00, "if-eval hard": 0.25, "gsm8k": 0.15, "humaneval": 0.60},
+    # ]
+    stage_weights = [ # got best results w this version!!!!
+        # Stage 0: similar warmup
+        {"if-eval easy": 0.35, "if-eval medium": 0.10, "if-eval hard": 0.00, "gsm8k": 0.40, "humaneval": 0.15},
+        # Stage 1: GSM8K dominant but grow code earlier
+        {"if-eval easy": 0.00, "if-eval medium": 0.10, "if-eval hard": 0.10, "gsm8k": 0.55, "humaneval": 0.25},
+        # Stage 2: finish with code + hard IF, minimal math to avoid forgetting
+        {"if-eval easy": 0.00, "if-eval medium": 0.00, "if-eval hard": 0.30, "gsm8k": 0.20, "humaneval": 0.50},
     ]
+
+
 
     # END OF WEIGHTS
 
@@ -475,7 +506,7 @@ def main():
         stage_dataset = (sample_from_dataset(dataset_tutu_split["easy"], int(stage_samples[s] * stage_weights[s]["if-eval easy"])) 
             + sample_from_dataset(dataset_tutu_split["medium"], int(stage_samples[s] * stage_weights[s]["if-eval medium"])) 
             + sample_from_dataset(dataset_tutu_split["hard"], int(stage_samples[s] * stage_weights[s]["if-eval hard"])) 
-            + sample_from_dataset(dataset_gsm, int(stage_samples[s] * stage_weights[s]["gsm8k"])) 
+            + sample_from_dataset(gsm_combined, int(stage_samples[s] * stage_weights[s]["gsm8k"])) 
             + sample_from_dataset(dataset_coding, int(stage_samples[s] * stage_weights[s]["humaneval"])))
         random.shuffle(stage_dataset)
         train_stage, val_stage = split_dataset(stage_dataset)
@@ -502,9 +533,9 @@ def main():
     adam_params = types.AdamParams(learning_rate=args.lr, beta1=0.9, beta2=0.95, eps=1e-8)
     print(f"\nTraining for {args.num_steps} steps (batch_size={args.batch_size}, lr={args.lr})...")
     
-    # Early stopping tracks the best val loss seen in the current stage.
+    #Early Stopping Variables
     best_val_loss = float("inf")
-    patience_counter = 0    
+    patience_counter = 0
 
     max_attained_stage = -1
     train_data = None
@@ -512,9 +543,11 @@ def main():
     cum_weights = [0]+list(accumulate(data_weights))
     step = -1
     stage = -1
-    
-    train_loss_store = [] 
-    val_loss_store = [] 
+
+    train_losses = []
+    val_losses = []
+    train_loss_store = []
+    val_loss_store = []
 
     while step < args.num_steps:
         step += 1
@@ -552,6 +585,9 @@ def main():
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
         
+        train_losses.append({"step": step+1, "stage": stage, "train_loss": train_loss})
+
+        
         train_loss_store.append(train_loss)
         
         ##print(f"Curriculum {stage} | Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")##
@@ -574,6 +610,8 @@ def main():
                 val_count += float(batch_weights.sum())
 
             val_loss = -val_total / max(val_count, 1.0)
+            val_losses.append({"step": step+1, "stage": stage, "val_loss": val_loss})
+
             ###
             val_block_elapsed = time.perf_counter() - val_block_start
             ###
@@ -585,23 +623,26 @@ def main():
 
             # Early Stopping (optional)
             if args.early_stopping:
-                if val_loss <= best_val_loss:
+                if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     patience_counter = 0
                 else:
                     patience_counter += 1
                     print(f"  No improvement in val_loss. Patience counter: {patience_counter}/{args.patience}")
-                
+
                 if patience_counter >= args.patience:
                     print(f"  Early stopping at step {step+1} (val_loss={val_loss:.4f} did not improve over best_loss={best_val_loss:.4f})")
                     print(f"  Ending curriculum {stage}")
                     if stage == num_stages - 1:
                         break
                     else:
-                        # Jump to the next stage boundary instead of rewinding this stage.
-                        step = int(cum_weights[stage + 1] * args.num_steps)
+                        stage += 1
+                        print(f"Starting training curriculum: {stage}")
+                        train_data = train_sets[stage]
+                        val_batches = val_batches_bystage[stage]
+                        val_data = val_sets[stage]
                         patience_counter = 0
-                        continue
+                        best_val_loss = float("inf")
             
         ###
         else: 
@@ -634,6 +675,8 @@ def main():
             "lora_rank": args.rank,
         },
         "published": not args.no_publish,
+        "train_losses": train_losses,
+        "val_losses": val_losses,
     }
     info_path = os.path.join(EVAL_DIR, "checkpoint_info.json")
     with open(info_path, "w") as f:
