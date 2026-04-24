@@ -23,6 +23,7 @@ import random
 import time
 import math
 import re
+from datetime import datetime
 
 import numpy as np
 import tinker
@@ -209,15 +210,89 @@ def format_mbpp(example):
             }
         ]
 
-def format_opencode(example):
-    return [
+# temp_count = 0
+
+def format_opencode(example, original = True):
+    if float(example["average_test_score"]) < 0.8:
+        return False
+    if original:
+        return [
             {
                 "role": "user",
-                "content": example['input']
+                "content": example["input"]
             },
             {
                 "role": "assistant",
-                "content": example['output']
+                "content": example["output"]
+            }
+        ]
+    text = example["output"]
+    prompt = example["input"]
+
+    def extract_code(text):
+        match = re.search(r"```python\s*(.*?)```", text, re.DOTALL)
+        total_code = match.group(1).strip().splitlines() if match else None
+
+        pattern = r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
+        match = re.search(pattern, text)
+        function_name = match.group(1).strip() if match else None
+        
+        pattern = r"```python\s*(.*?def\s+\w+\(.*?\):\s*\"\"\".*?\"\"\"\s*)"
+        match = re.search(pattern, text, re.DOTALL)
+        preamble = match.group(1).strip().splitlines() if match else None
+
+        if (total_code is None) or (function_name is None) or (preamble is None):
+            return None
+        code_body = total_code[len(preamble):]
+        code_body = [line for line in code_body if (not line.startswith("#"))]
+
+        return function_name, preamble, code_body
+  
+      
+    def process_prompt(text):
+        pattern = r"\*\*Sample Input:\*\*\s*```(.*?)```\s*\*\*Sample Output:\*\*\s*```(.*?)```"
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            result = [match.group(1).strip(), match.group(2).strip()]
+            return result
+
+    def make_examples(example_pairs, function_name):
+        inputs, outputs = example_pairs
+        if len(inputs) != len(outputs):
+            print(inputs, outputs, function_name)
+        assert len(inputs) == len(outputs)
+        examples = []
+        for i in range(len(inputs)):
+            examples.append(f">>> {function_name}({inputs[i]})")
+            examples.append(outputs[i])
+
+        return "\n".join(examples)
+
+    code_content = extract_code(text)
+    pairs = process_prompt(prompt)
+    if code_content is None or pairs is None:
+        return False
+    
+    func_name, preamble, content = code_content
+    # preamble = [f'''"""Input Examples: {pairs[0]}'''] + [f'''Output Examples: {pairs[1]}"""\n'''] + preamble
+    modified_prompt = prompt + "\n".join(preamble)
+    response = "\n".join(content)
+
+    # ugly debugging code
+    # global temp_count
+    # if temp_count < 20:
+    #     print(modified_prompt)
+    #     print(response)
+    #     temp_count+=1
+
+    return [
+            {
+                "role": "user",
+                "content": modified_prompt
+            },
+            {
+                "role": "assistant",
+                "content": response
             }
         ]
     
@@ -236,13 +311,13 @@ def format_magicoder(example):
 
 def main():
     parser = argparse.ArgumentParser(description="Train, save, and publish a checkpoint")
-    parser.add_argument("--num_steps", type=int, default=600, help="Number of training steps")
+    parser.add_argument("--num_steps", type=int, default=200, help="Number of training steps")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--rank", type=int, default=64, help="LoRA rank")
     parser.add_argument("--checkpoint_name", type=str, default="demo", help="Checkpoint name")
     parser.add_argument("--no_publish", action="store_true", help="Skip publishing")
-    parser.add_argument("--val_every", type=int, default=15, help="Validate every N steps")
+    parser.add_argument("--val_every", type=int, default=10, help="Validate every N steps")
     parser.add_argument("--val_batch_size", type=int, default=64, help="Validation batch size")
     parser.add_argument("--early_stopping", type=bool, default=True, help="Early Stopping")
     parser.add_argument("--patience", type=int, default=4, help="Early stopping patience (number of validations to wait for improvement)")
@@ -330,14 +405,15 @@ def main():
         if name == "opencode":
             ds = load_dataset("nvidia/OpenCodeInstruct", split = "train", streaming = True)
             dataset = list(ds.take(3000))
-            dataset = [format_opencode(s) for s in dataset if float(s["average_test_score"]) > 0.8]
+            dataset = [res for s in dataset if (res := format_opencode(s, original = True))]
             dataset = deduplicate_conversations(dataset)
+            print(dataset[:5])
             dataset = to_datum(dataset)
             return dataset
         if name == "magicoder": 
             ds = load_dataset("ise-uiuc/Magiccoder-0SS-Instruct-75K", split = "train", streaming = True)
             dataset = list(ds.take(3000))
-            dataset = [format_magicoder(s) for s in dataset]
+            dataset = [format_magicoder(s) for s in dataset if s["lang"] == "python"]
             return dataset 
 
         raise ValueError("Invalid dataset name.")
@@ -568,8 +644,12 @@ def main():
     
     print("Training Losses:")
     print(train_loss_store) 
+    with open(f"train_loss{datetime.now()}.json", "w") as f:
+        json.dump(train_loss_store, f)
     print("Validation Losses:")
     print(val_loss_store)
+    with open(f"val_loss{datetime.now()}.json", "w") as f:
+        json.dump(val_loss_store, f)
 
 
 if __name__ == "__main__":
