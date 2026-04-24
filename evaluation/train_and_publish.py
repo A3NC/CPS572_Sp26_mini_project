@@ -311,6 +311,9 @@ def main():
     prev_val_loss = float("inf")
     patience_counter = 0    
 
+    train_losses = []
+    val_losses = []
+
     for step in range(args.num_steps):
         # Cycle through training data
         # start = (step * args.batch_size) % len(train_data)
@@ -332,6 +335,7 @@ def main():
             train_total += float(np.dot(logprobs, weights))
             train_count += float(weights.sum())
         train_loss = -train_total / max(train_count, 1.0)
+        train_losses.append((step + 1, train_loss))
         
         print(f" Step {step+1}/{args.num_steps} | Train Loss: {train_loss:.4f}")
         
@@ -353,6 +357,8 @@ def main():
                 val_count += float(batch_weights.sum())
 
             val_loss = -val_total / max(val_count, 1.0)
+            val_losses.append((step + 1, val_loss))
+
             ###
             val_block_elapsed = time.perf_counter() - val_block_start
             ###
@@ -380,6 +386,15 @@ def main():
         else: 
             val_loss = None
 
+    # Print loss summaries
+    print("\n--- Train Loss History ---")
+    for step, loss in train_losses:
+        print(f"  Step {step:>4}: {loss:.4f}")
+ 
+    print("\n--- Val Loss History ---")
+    for step, loss in val_losses:
+        print(f"  Step {step:>4}: {loss:.4f}")
+        
     # Save checkpoint
     print(f"\nSaving checkpoint '{args.checkpoint_name}'...")
     ckpt = tc.save_weights_for_sampler(name=args.checkpoint_name).result()

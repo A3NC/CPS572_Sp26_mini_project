@@ -1,5 +1,5 @@
 {
-  "checkpoint_path": "tinker://cbe5cc9b-812a-5da4-8c8a-537d36c570bb:train:0/sampler_weights/demo",
+  "checkpoint_path": "tinker://37c47066-4195-5cc0-9be5-eb97b176968c:train:0/sampler_weights/demo",
   "base_model": "meta-llama/Llama-3.1-8B",
   "renderer_name": "role_colon",
   "training": {
